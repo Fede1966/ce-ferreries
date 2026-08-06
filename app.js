@@ -1505,7 +1505,7 @@ async function supabaseRequest(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
   const authorizationToken = method === "GET"
     ? getSupabaseAnonKey()
-    : authSession?.access_token || getSupabaseAnonKey();
+    : await getValidAccessToken();
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
