@@ -3079,115 +3079,138 @@ function renderMatchStats(item, body) {
   }
 
   const duration = Number(item.actaDuration) || 80;
+  const editable = canEdit();
 
-  const playerStats = players.map((playerItem) => {
+  const playerData = players.map((playerItem) => {
     const acta = item.actaPlayers?.[playerItem.id];
     const report = playerReport(playerItem, item.id);
-    const participated = playerParticipatedInMatch(playerItem, item);
-    const isStarter = participated && playerStartedMatch(playerItem, item);
-
-    let minutes = 0;
-    if (acta && acta.role && acta.role !== "none") {
-      const entry = Number(acta.entry) || 0;
-      const exit = (acta.exit != null && acta.exit !== "") ? Number(acta.exit) : duration;
-      minutes = Math.max(0, exit - entry);
-    } else if (participated) {
-      minutes = report.minutes;
-    }
-
+    const role = acta?.role || (report.minutes > 0 ? "starter" : "none");
+    const entry = Number(acta?.entry) || 0;
+    const exitVal = (acta?.exit != null && acta?.exit !== "") ? Number(acta.exit) : duration;
+    const minutes = (acta && acta.role && acta.role !== "none")
+      ? Math.max(0, exitVal - entry)
+      : report.minutes;
     return {
       playerItem,
-      participated,
-      isStarter,
+      role,
       minutes,
-      goals: participated ? (acta?.goals != null ? Number(acta.goals) : report.goals) : 0,
-      assists: participated ? report.assists : 0,
-      yellowCards: participated ? (acta?.yellowCards != null ? Number(acta.yellowCards) : report.yellowCards) : 0,
-      redCards: participated ? (acta?.redCards != null ? Number(acta.redCards) : report.redCards) : 0
+      goals: acta?.goals != null ? Number(acta.goals) : report.goals,
+      assists: report.assists,
+      yellowCards: acta?.yellowCards != null ? Number(acta.yellowCards) : report.yellowCards,
+      redCards: acta?.redCards != null ? Number(acta.redCards) : report.redCards
     };
   });
 
-  const rows = [
-    {
-      label: "Titular",
-      render: (s) => {
-        if (!s.participated) return `<span class="mstat-none">—</span>`;
-        return s.isStarter
-          ? `<span class="mstat-badge starter">T</span>`
-          : `<span class="mstat-badge sub">S</span>`;
-      }
-    },
-    {
-      label: "Minutos",
-      render: (s) =>
-        s.participated
-          ? `<strong>${s.minutes}'</strong>`
-          : `<span class="mstat-none">—</span>`
-    },
-    {
-      label: "Goles",
-      render: (s) => {
-        if (!s.participated) return `<span class="mstat-none">—</span>`;
-        return s.goals > 0 ? `<strong class="mstat-positive">${s.goals}</strong>` : `0`;
-      }
-    },
-    {
-      label: "Asistencias",
-      render: (s) => {
-        if (!s.participated) return `<span class="mstat-none">—</span>`;
-        return s.assists > 0 ? `<strong class="mstat-positive">${s.assists}</strong>` : `0`;
-      }
-    },
-    {
-      label: "TA",
-      render: (s) => {
-        if (!s.participated) return `<span class="mstat-none">—</span>`;
-        return s.yellowCards > 0
-          ? `<span class="mstat-card yellow">${s.yellowCards}</span>`
-          : `0`;
-      }
-    },
-    {
-      label: "TR",
-      render: (s) => {
-        if (!s.participated) return `<span class="mstat-none">—</span>`;
-        return s.redCards > 0
-          ? `<span class="mstat-card red">${s.redCards}</span>`
-          : `0`;
-      }
-    }
-  ];
+  const pid = (d) => escapeAttr(d.playerItem.id);
+
+  const roleCell = (d) => editable
+    ? `<select class="mstat-select" data-pid="${pid(d)}" data-stat="role">
+        <option value="none" ${d.role === "none" ? "selected" : ""}>—</option>
+        <option value="starter" ${d.role === "starter" ? "selected" : ""}>Titular</option>
+        <option value="substitute" ${d.role === "substitute" ? "selected" : ""}>Suplente</option>
+       </select>`
+    : (d.role === "starter" ? `<span class="mstat-badge starter">T</span>`
+      : d.role === "substitute" ? `<span class="mstat-badge sub">S</span>`
+      : `<span class="mstat-none">—</span>`);
+
+  const numCell = (d, stat, val, max, cls = "") => editable
+    ? `<input class="mstat-input${cls}" type="number" min="0"${max != null ? ` max="${max}"` : ""} data-pid="${pid(d)}" data-stat="${stat}" value="${val}" />`
+    : (val > 0 ? `<strong class="${cls || "mstat-positive"}">${val}</strong>` : `<span class="mstat-zero">0</span>`);
 
   body.innerHTML = `
     <div class="mstat-wrap">
+      ${editable ? `
+        <div class="mstat-toolbar">
+          <button class="primary-button" id="mstat-save" type="button">Guardar estadísticas</button>
+          <span class="mstat-status" id="mstat-status"></span>
+        </div>` : ""}
       <div class="mstat-scroll">
         <table class="mstat-table">
           <thead>
             <tr>
-              <th class="mstat-row-label"></th>
-              ${playerStats.map((s) => `
-                <th class="mstat-player-col${s.participated ? " participated" : ""}">
-                  ${s.playerItem.number ? `<span class="mstat-dorsal">${escapeHtml(String(s.playerItem.number))}</span>` : ""}
-                  <span class="mstat-name">${escapeHtml(shortName(s.playerItem.name))}</span>
-                </th>
-              `).join("")}
+              <th class="mstat-col-player">Jugador</th>
+              <th class="mstat-col-stat">Titular</th>
+              <th class="mstat-col-stat">Minutos</th>
+              <th class="mstat-col-stat">Goles</th>
+              <th class="mstat-col-stat">Asistencias</th>
+              <th class="mstat-col-stat mstat-col-card">TA</th>
+              <th class="mstat-col-stat mstat-col-card">TR</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <th class="mstat-row-label">${escapeHtml(row.label)}</th>
-                ${playerStats.map((s) => `
-                  <td class="mstat-cell${s.participated ? "" : " mstat-inactive"}">${row.render(s)}</td>
-                `).join("")}
+            ${playerData.map((d) => `
+              <tr class="${d.role === "none" ? "mstat-row-out" : ""}">
+                <td class="mstat-col-player">
+                  ${d.playerItem.number ? `<span class="mstat-dorsal">${escapeHtml(String(d.playerItem.number))}</span>` : ""}
+                  <span class="mstat-fullname">${escapeHtml(d.playerItem.name)}</span>
+                </td>
+                <td class="mstat-cell">${roleCell(d)}</td>
+                <td class="mstat-cell">${numCell(d, "minutes", d.minutes, duration)}</td>
+                <td class="mstat-cell">${numCell(d, "goals", d.goals, null)}</td>
+                <td class="mstat-cell">${numCell(d, "assists", d.assists, null)}</td>
+                <td class="mstat-cell">${numCell(d, "yellowCards", d.yellowCards, 2, "mstat-input-yellow")}</td>
+                <td class="mstat-cell">${numCell(d, "redCards", d.redCards, 1, "mstat-input-red")}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
       </div>
-      <p class="mstat-note">Datos del acta importada y de los informes individuales. Modifícalos desde «Importar acta» o el informe de cada jugador.</p>
     </div>
   `;
+
+  if (!editable) return;
+
+  body.querySelector("#mstat-save").addEventListener("click", () => {
+    const records = {};
+    let totalYellows = 0;
+    let totalReds = 0;
+
+    players.forEach((playerItem) => {
+      const get = (stat) => {
+        const el = body.querySelector(`[data-stat="${stat}"][data-pid="${CSS.escape(playerItem.id)}"]`);
+        return el ? el.value : "0";
+      };
+      const role = get("role") || "none";
+      const minutes = clamp(nonNegativeInteger(get("minutes")), 0, duration);
+      const goals = nonNegativeInteger(get("goals"));
+      const assists = nonNegativeInteger(get("assists"));
+      const yellows = normalizeCardCount(get("yellowCards"), 2);
+      const reds = normalizeCardCount(get("redCards"), 1);
+      const exit = role !== "none" ? minutes : 0;
+
+      const report = ensurePlayerReport(playerItem, item.id);
+      report.minutes = role === "none" ? 0 : minutes;
+      report.goals = goals;
+      report.assists = assists;
+      report.yellowCards = yellows;
+      report.redCards = reds;
+
+      records[playerItem.id] = { role, entry: 0, exit, goals, yellowCards: yellows, redCards: reds };
+      totalYellows += yellows;
+      totalReds += reds;
+    });
+
+    item.actaPlayers = records;
+    item.actaDuration = item.actaDuration || duration;
+    item.teamStats = { ...normalizeTeamMatchStats(item.teamStats), yellowCards: totalYellows, redCards: totalReds };
+
+    const ownSide = ownTeamSide(item);
+    item.lineupSheets = normalizeLineupSheets(item.lineupSheets, item);
+    item.lineupSheets[ownSide] = Object.entries(records)
+      .filter(([, r]) => r.role !== "none")
+      .map(([playerId, r]) => ({
+        playerId,
+        name: state.players.find((p) => p.id === playerId)?.name || "",
+        role: r.role === "substitute" ? "substitute" : "starter",
+        changeMinute: r.role === "substitute" ? r.exit : (r.exit < duration ? r.exit : "")
+      }));
+
+    saveMatchState(item);
+
+    const status = body.querySelector("#mstat-status");
+    status.textContent = "✓ Guardado";
+    setTimeout(() => { status.textContent = ""; }, 2500);
+  });
 }
 
 function matchItemActaLink(item) {
