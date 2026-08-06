@@ -1450,13 +1450,18 @@ async function pullNewSeasonRemoteState() {
       return;
     }
 
-    // Supabase es siempre la fuente de verdad al cargar.
-    // Si el local parece más nuevo es porque el usuario usó otro dominio antes:
-    // en ese caso NO se sobrescribe Supabase con datos locales posiblemente obsoletos.
-    localStorage.setItem(SEASON_STORAGE_KEYS[NEW_SEASON], JSON.stringify(remoteState));
-    state = loadState();
-    repairMissingTeams();
-    render();
+    const remoteModifiedAt = Number(remoteState.lastModifiedAt) || 0;
+    const localModifiedAt = Number(state.lastModifiedAt) || 0;
+    if (remoteModifiedAt > localModifiedAt) {
+      localStorage.setItem(SEASON_STORAGE_KEYS[NEW_SEASON], JSON.stringify(remoteState));
+      state = loadState();
+      repairMissingTeams();
+      render();
+    } else if (localModifiedAt > remoteModifiedAt) {
+      isPullingRemote = false;
+      await pushNewSeasonRemoteState();
+      return;
+    }
   } catch (error) {
     console.error("No se pudo sincronizar la temporada 2026-2027", error);
   } finally {
