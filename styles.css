@@ -2111,6 +2111,150 @@ button {
   font-size: .7rem;
 }
 
+/* ── Match statistics tab ────────────────────────────────── */
+.mstat-wrap {
+  padding: 4px 0 8px;
+}
+
+.mstat-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.mstat-table {
+  border-collapse: collapse;
+  min-width: 600px;
+  width: 100%;
+  font-size: .82rem;
+}
+
+.mstat-row-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  padding: 9px 14px;
+  background: var(--soft);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: .72rem;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 100px;
+}
+
+.mstat-table thead .mstat-row-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mstat-player-col {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid #eef0f2;
+  background: var(--soft);
+  color: var(--muted);
+  min-width: 72px;
+  max-width: 96px;
+  text-align: center;
+  vertical-align: bottom;
+  font-weight: 700;
+}
+
+.mstat-player-col.participated {
+  color: var(--ink);
+  background: #fff;
+}
+
+.mstat-dorsal {
+  display: block;
+  font-size: .68rem;
+  font-weight: 900;
+  color: var(--red);
+  line-height: 1;
+  margin-bottom: 3px;
+}
+
+.mstat-name {
+  display: block;
+  font-size: .72rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.mstat-cell {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid #eef0f2;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.mstat-cell.mstat-inactive {
+  background: #fafafa;
+  color: #ccc;
+}
+
+.mstat-none {
+  color: #ccc;
+}
+
+.mstat-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mstat-badge.starter {
+  background: var(--ink);
+  color: #fff;
+}
+
+.mstat-badge.sub {
+  background: #e8eaed;
+  color: var(--ink);
+}
+
+.mstat-positive {
+  color: #167a2b;
+}
+
+.mstat-card {
+  display: inline-block;
+  width: 16px;
+  height: 22px;
+  border-radius: 3px;
+  font-size: .7rem;
+  font-weight: 900;
+  line-height: 22px;
+  transform: rotate(8deg);
+  color: #fff;
+}
+
+.mstat-card.yellow {
+  background: #e8c200;
+  color: #4a3a00;
+}
+
+.mstat-card.red {
+  background: #d4122a;
+}
+
+.mstat-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+/* ── end match stats tab ─────────────────────────────────── */
+
 .statistics-section {
   min-width: 0;
 }

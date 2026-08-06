@@ -3044,6 +3044,7 @@ function renderMatchDetail() {
       <button class="detail-tab ${state.activeDetailTab === "lineup" ? "active" : ""}" data-detail-tab="lineup" type="button">Alineación</button>
       <button class="detail-tab ${state.activeDetailTab === "information" ? "active" : ""}" data-detail-tab="information" type="button">Información del partido</button>
       <button class="detail-tab ${state.activeDetailTab === "video" ? "active" : ""}" data-detail-tab="video" type="button">Vídeo</button>
+      <button class="detail-tab ${state.activeDetailTab === "stats" ? "active" : ""}" data-detail-tab="stats" type="button">Estadísticas</button>
     </div>
     <div id="detail-body"></div>
   `;
@@ -3063,7 +3064,130 @@ function renderMatchDetail() {
   if (state.activeDetailTab === "plan") renderPlan(item, body);
   else if (state.activeDetailTab === "information") renderMatchInformation(item, body);
   else if (state.activeDetailTab === "video") renderMatchVideo(item, body);
+  else if (state.activeDetailTab === "stats") renderMatchStats(item, body);
   else renderLineupEditor(item, body);
+}
+
+function renderMatchStats(item, body) {
+  const players = activePlayers().slice().sort(
+    (a, b) => (a.number || 999) - (b.number || 999) || a.name.localeCompare(b.name, "es")
+  );
+
+  if (players.length === 0) {
+    body.innerHTML = `<div class="empty-state">No hay jugadores en la plantilla.</div>`;
+    return;
+  }
+
+  const duration = Number(item.actaDuration) || 80;
+
+  const playerStats = players.map((playerItem) => {
+    const acta = item.actaPlayers?.[playerItem.id];
+    const report = playerReport(playerItem, item.id);
+    const participated = playerParticipatedInMatch(playerItem, item);
+    const isStarter = participated && playerStartedMatch(playerItem, item);
+
+    let minutes = 0;
+    if (acta && acta.role && acta.role !== "none") {
+      const entry = Number(acta.entry) || 0;
+      const exit = (acta.exit != null && acta.exit !== "") ? Number(acta.exit) : duration;
+      minutes = Math.max(0, exit - entry);
+    } else if (participated) {
+      minutes = report.minutes;
+    }
+
+    return {
+      playerItem,
+      participated,
+      isStarter,
+      minutes,
+      goals: participated ? (acta?.goals != null ? Number(acta.goals) : report.goals) : 0,
+      assists: participated ? report.assists : 0,
+      yellowCards: participated ? (acta?.yellowCards != null ? Number(acta.yellowCards) : report.yellowCards) : 0,
+      redCards: participated ? (acta?.redCards != null ? Number(acta.redCards) : report.redCards) : 0
+    };
+  });
+
+  const rows = [
+    {
+      label: "Titular",
+      render: (s) => {
+        if (!s.participated) return `<span class="mstat-none">—</span>`;
+        return s.isStarter
+          ? `<span class="mstat-badge starter">T</span>`
+          : `<span class="mstat-badge sub">S</span>`;
+      }
+    },
+    {
+      label: "Minutos",
+      render: (s) =>
+        s.participated
+          ? `<strong>${s.minutes}'</strong>`
+          : `<span class="mstat-none">—</span>`
+    },
+    {
+      label: "Goles",
+      render: (s) => {
+        if (!s.participated) return `<span class="mstat-none">—</span>`;
+        return s.goals > 0 ? `<strong class="mstat-positive">${s.goals}</strong>` : `0`;
+      }
+    },
+    {
+      label: "Asistencias",
+      render: (s) => {
+        if (!s.participated) return `<span class="mstat-none">—</span>`;
+        return s.assists > 0 ? `<strong class="mstat-positive">${s.assists}</strong>` : `0`;
+      }
+    },
+    {
+      label: "TA",
+      render: (s) => {
+        if (!s.participated) return `<span class="mstat-none">—</span>`;
+        return s.yellowCards > 0
+          ? `<span class="mstat-card yellow">${s.yellowCards}</span>`
+          : `0`;
+      }
+    },
+    {
+      label: "TR",
+      render: (s) => {
+        if (!s.participated) return `<span class="mstat-none">—</span>`;
+        return s.redCards > 0
+          ? `<span class="mstat-card red">${s.redCards}</span>`
+          : `0`;
+      }
+    }
+  ];
+
+  body.innerHTML = `
+    <div class="mstat-wrap">
+      <div class="mstat-scroll">
+        <table class="mstat-table">
+          <thead>
+            <tr>
+              <th class="mstat-row-label"></th>
+              ${playerStats.map((s) => `
+                <th class="mstat-player-col${s.participated ? " participated" : ""}">
+                  ${s.playerItem.number ? `<span class="mstat-dorsal">${escapeHtml(String(s.playerItem.number))}</span>` : ""}
+                  <span class="mstat-name">${escapeHtml(shortName(s.playerItem.name))}</span>
+                </th>
+              `).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <th class="mstat-row-label">${escapeHtml(row.label)}</th>
+                ${playerStats.map((s) => `
+                  <td class="mstat-cell${s.participated ? "" : " mstat-inactive"}">${row.render(s)}</td>
+                `).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+      <p class="mstat-note">Datos del acta importada y de los informes individuales. Modifícalos desde «Importar acta» o el informe de cada jugador.</p>
+    </div>
+  `;
 }
 
 function matchItemActaLink(item) {
