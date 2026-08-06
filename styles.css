@@ -615,12 +615,12 @@ button {
   background:
     repeating-linear-gradient(
       -52deg,
-      #07111f 0px,
-      #07111f 52px,
+      #0d2255 0px,
+      #0d2255 52px,
       #5a0c17 72px,
       #9c1020 92px,
       #5a0c17 112px,
-      #07111f 132px
+      #0d2255 132px
     );
   color: #fff;
   padding: 14px 28px;
