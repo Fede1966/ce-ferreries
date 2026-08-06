@@ -1581,11 +1581,13 @@ async function savePlayerPhoto(file, playerId) {
 
   try {
     const path = `${playerId}/${Date.now()}-${safeFileName(file.name)}`;
+    const token = await getValidAccessToken();
+    let tokenRole = "?";
+    try { tokenRole = JSON.parse(atob(token.split(".")[1])).role; } catch {}
     await supabaseStorageRequest(`object/${PLAYER_PHOTOS_BUCKET}/${path}`, {
       method: "POST",
       headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "x-upsert": "true"
+        "Content-Type": file.type || "application/octet-stream"
       },
       body: file
     });
@@ -1597,7 +1599,9 @@ async function savePlayerPhoto(file, playerId) {
     console.error(error);
     let detail = "";
     try { detail = JSON.parse(error.message)?.message || error.message; } catch { detail = error.message; }
-    alert(`No se pudo subir la foto.\nError: ${detail}`);
+    let tokenRole = "?";
+    try { const t = await getValidAccessToken(); tokenRole = JSON.parse(atob(t.split(".")[1])).role; } catch {}
+    alert(`No se pudo subir la foto.\nError: ${detail}\nToken role: ${tokenRole}`);
     return null;
   }
 }
