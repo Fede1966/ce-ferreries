@@ -3079,7 +3079,6 @@ function renderMatchStats(item, body) {
   }
 
   const duration = Number(item.actaDuration) || 80;
-  const editable = canEdit();
 
   const playerData = players.map((playerItem) => {
     const acta = item.actaPlayers?.[playerItem.id];
@@ -3103,27 +3102,21 @@ function renderMatchStats(item, body) {
 
   const pid = (d) => escapeAttr(d.playerItem.id);
 
-  const roleCell = (d) => editable
-    ? `<select class="mstat-select" data-pid="${pid(d)}" data-stat="role">
-        <option value="none" ${d.role === "none" ? "selected" : ""}>—</option>
-        <option value="starter" ${d.role === "starter" ? "selected" : ""}>Titular</option>
-        <option value="substitute" ${d.role === "substitute" ? "selected" : ""}>Suplente</option>
-       </select>`
-    : (d.role === "starter" ? `<span class="mstat-badge starter">T</span>`
-      : d.role === "substitute" ? `<span class="mstat-badge sub">S</span>`
-      : `<span class="mstat-none">—</span>`);
+  const roleCell = (d) => `
+    <select class="mstat-select" data-pid="${pid(d)}" data-stat="role">
+      <option value="none" ${d.role === "none" ? "selected" : ""}>—</option>
+      <option value="starter" ${d.role === "starter" ? "selected" : ""}>Titular</option>
+      <option value="substitute" ${d.role === "substitute" ? "selected" : ""}>Suplente</option>
+    </select>`;
 
-  const numCell = (d, stat, val, max, cls = "") => editable
-    ? `<input class="mstat-input${cls}" type="number" min="0"${max != null ? ` max="${max}"` : ""} data-pid="${pid(d)}" data-stat="${stat}" value="${val}" />`
-    : (val > 0 ? `<strong class="${cls || "mstat-positive"}">${val}</strong>` : `<span class="mstat-zero">0</span>`);
+  const numCell = (d, stat, val, max, extraCls = "") => `<input class="mstat-input ${extraCls}" type="number" min="0"${max != null ? ` max="${max}"` : ""} data-pid="${pid(d)}" data-stat="${stat}" value="${val}" />`;
 
   body.innerHTML = `
     <div class="mstat-wrap">
-      ${editable ? `
-        <div class="mstat-toolbar">
-          <button class="primary-button" id="mstat-save" type="button">Guardar estadísticas</button>
-          <span class="mstat-status" id="mstat-status"></span>
-        </div>` : ""}
+      <div class="mstat-toolbar">
+        <button class="primary-button" id="mstat-save" type="button">Guardar estadísticas</button>
+        <span class="mstat-status" id="mstat-status"></span>
+      </div>
       <div class="mstat-scroll">
         <table class="mstat-table">
           <thead>
@@ -3157,8 +3150,6 @@ function renderMatchStats(item, body) {
       </div>
     </div>
   `;
-
-  if (!editable) return;
 
   body.querySelector("#mstat-save").addEventListener("click", () => {
     const records = {};
@@ -3206,10 +3197,7 @@ function renderMatchStats(item, body) {
       }));
 
     saveMatchState(item);
-
-    const status = body.querySelector("#mstat-status");
-    status.textContent = "✓ Guardado";
-    setTimeout(() => { status.textContent = ""; }, 2500);
+    render();
   });
 }
 
