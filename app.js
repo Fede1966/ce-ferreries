@@ -1315,7 +1315,9 @@ function hasSupabaseConfig() {
 }
 
 function queueRemoteSave() {
-  if (!hasSupabaseConfig() || !canEdit() || isPullingRemote) return;
+  if (!hasSupabaseConfig()) { console.warn("[Sync] Sin config Supabase"); return; }
+  if (!canEdit()) { console.warn("[Sync] Push omitido: NO ESTÁS LOGUEADO"); return; }
+  if (isPullingRemote) { console.warn("[Sync] Push omitido: pull en curso"); return; }
   clearTimeout(remoteSaveTimer);
   remoteSaveTimer = setTimeout(() => {
     pushRemoteState();
@@ -1470,8 +1472,9 @@ async function pullNewSeasonRemoteState() {
 }
 
 async function pushNewSeasonRemoteState(throwOnError = false) {
-  if (!hasSupabaseConfig() || !canEdit()) return;
+  if (!hasSupabaseConfig() || !canEdit()) { console.warn("[Sync] pushNewSeasonRemoteState omitido: no config o no autenticado"); return; }
   try {
+    console.log("[Sync] Guardando estado en Supabase...");
     await supabaseUpsert(
       "matches",
       [{
@@ -1495,8 +1498,9 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
       }],
       "match_id"
     );
+    console.log("[Sync] Estado guardado en Supabase ✓");
   } catch (error) {
-    console.error("No se pudo guardar la temporada 2026-2027 en remoto", error);
+    console.error("[Sync] ERROR al guardar en Supabase:", error);
     if (throwOnError) throw error;
   }
 }
