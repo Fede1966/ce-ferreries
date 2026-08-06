@@ -1471,9 +1471,19 @@ async function pullNewSeasonRemoteState() {
   }
 }
 
+function setSyncStatus(status, msg) {
+  const el = document.getElementById("sync-status");
+  if (!el) return;
+  el.className = "sync-status " + status;
+  el.textContent = msg;
+  if (status === "ok") setTimeout(() => { el.className = "sync-status"; el.textContent = ""; }, 4000);
+  if (status === "error") el.onclick = () => alert("Error de sincronización:\n" + msg);
+}
+
 async function pushNewSeasonRemoteState(throwOnError = false) {
   if (!hasSupabaseConfig() || !canEdit()) { console.warn("[Sync] pushNewSeasonRemoteState omitido: no config o no autenticado"); return; }
   try {
+    setSyncStatus("syncing", "Guardando...");
     console.log("[Sync] Guardando estado en Supabase...");
     await supabaseUpsert(
       "matches",
@@ -1498,8 +1508,10 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
       }],
       "match_id"
     );
+    setSyncStatus("ok", "✓ Guardado");
     console.log("[Sync] Estado guardado en Supabase ✓");
   } catch (error) {
+    setSyncStatus("error", String(error));
     console.error("[Sync] ERROR al guardar en Supabase:", error);
     if (throwOnError) throw error;
   }
