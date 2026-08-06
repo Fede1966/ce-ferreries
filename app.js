@@ -16,6 +16,19 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZobW55am1obm9icW14Z3Vsc2FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzEyNTMsImV4cCI6MjA5NjI0NzI1M30.Li4R65j3sGHSrIdt7tiubHNDgKrzjXDqcT92BCqZfDA";
 const PLAYER_PHOTOS_BUCKET = "player-photos";
 const AUTH_SESSION_KEY = "ce-ferreries-auth-session";
+const ADMIN_EMAIL = "calagaldana@gmail.com";
+const TEAM_LOGIN_ACCOUNTS = {
+  regional: { email: "calagaldana+regional@gmail.com", teamId: "ce-ferreries-regional-preferente" },
+  "juvenil-nacional": { email: "calagaldana+juvenil-nacional@gmail.com", teamId: "ce-ferreries-juvenil-nacional" },
+  "juvenil-b": { email: "calagaldana+juvenil-b@gmail.com", teamId: "ce-ferreries-juvenil-preferente-b" },
+  cadete: { email: "calagaldana+cadete@gmail.com", teamId: "ce-ferreries-cadete-preferente" },
+  infantil: { email: "calagaldana+infantil@gmail.com", teamId: "ce-ferreries-infantil-preferente" },
+  "alevin-a": { email: "calagaldana+alevin-a@gmail.com", teamId: "ce-ferreries-alevin-a" },
+  "alevin-b": { email: "calagaldana+alevin-b@gmail.com", teamId: "ce-ferreries-alevin-b" },
+  "benjamin-a": { email: "calagaldana+benjamin-a@gmail.com", teamId: "ce-ferreries-benjamin-a" },
+  "benjamin-b": { email: "calagaldana+benjamin-b@gmail.com", teamId: "ce-ferreries-benjamin-b" },
+  prebenjamin: { email: "calagaldana+prebenjamin@gmail.com", teamId: "ce-ferreries-prebenjamin" }
+};
 let authSession = loadAuthSession();
 
 function loadAuthSession() {
@@ -32,8 +45,40 @@ function loadAuthSession() {
   }
 }
 
+async function refreshSession() {
+  if (!authSession?.refresh_token) return;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: authSession.refresh_token })
+    });
+    if (!response.ok) return;
+    const result = await response.json();
+    if (!result.access_token) return;
+    authSession = result;
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(result));
+  } catch {
+    // silently ignore refresh errors
+  }
+}
+
+async function getValidAccessToken() {
+  if (!authSession?.access_token) return getSupabaseAnonKey();
+  const expiresAt = authSession.expires_at ? Number(authSession.expires_at) * 1000 : Infinity;
+  if (expiresAt - Date.now() < 60_000) {
+    await refreshSession();
+  }
+  return authSession?.access_token || getSupabaseAnonKey();
+}
+
 function canEdit() {
-  return Boolean(authSession?.access_token);
+  if (!authSession?.access_token) return false;
+  const email = authSession.user?.email?.toLocaleLowerCase("es") || "";
+  if (email === ADMIN_EMAIL) return true;
+  const assignedTeamId = Object.values(TEAM_LOGIN_ACCOUNTS)
+    .find((account) => account.email === email)?.teamId;
+  return Boolean(assignedTeamId && assignedTeamId === state?.activeTeamId);
 }
 const TEAM_NAME = "Athletic Club";
 const DEFAULT_TEAM_ID = "athletic-club";
@@ -50,6 +95,18 @@ const DEFAULT_VISIBLE_TEAMS = [
   { id: "ce-ferreries-benjamin-a", name: "CE Ferreries Benjamín A" },
   { id: "ce-ferreries-benjamin-b", name: "CE Ferreries Benjamín B" },
   { id: "ce-ferreries-prebenjamin", name: "CE Ferreries Prebenjamín" }
+];
+const TEAM_RELEVANCE = [
+  "regional",
+  "juvenil-nacional",
+  "juvenil-b",
+  "cadete",
+  "infantil",
+  "alevin-a",
+  "alevin-b",
+  "benjamin-a",
+  "benjamin-b",
+  "prebenjamin"
 ];
 const DEFAULT_FORMATION = "1442";
 const FORMATION_STORAGE_KEY = "__formation";
@@ -186,6 +243,9 @@ const matchVideoForm = document.querySelector("#match-video-form");
 const loginDialog = document.querySelector("#login-dialog");
 const loginForm = document.querySelector("#login-form");
 const loginStatus = document.querySelector("#login-status");
+const passwordRecoveryDialog = document.querySelector("#password-recovery-dialog");
+const passwordRecoveryForm = document.querySelector("#password-recovery-form");
+const passwordRecoveryStatus = document.querySelector("#password-recovery-status");
 const matchReportImportDialog = document.querySelector("#match-report-import-dialog");
 const matchReportImportForm = document.querySelector("#match-report-import-form");
 const actaFileInput = document.querySelector("#acta-file");
@@ -228,10 +288,9 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = document.querySelector("#login-username").value.trim().toLocaleLowerCase("es");
   const password = document.querySelector("#login-password").value;
-  const loginEmails = {
-    admin: "calagaldana@gmail.com"
-  };
-  const email = loginEmails[username];
+  const email = username === ADMIN_EMAIL
+    ? ADMIN_EMAIL
+    : TEAM_LOGIN_ACCOUNTS[username]?.email || "";
   const submitButton = loginForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
   loginStatus.textContent = "Comprobando credenciales...";
@@ -252,6 +311,67 @@ loginForm.addEventListener("submit", async (event) => {
     if (recoveredCadeteMatchCount) pushRemoteState();
   } catch (error) {
     loginStatus.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+const recoveryParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+const recoveryAccessToken = recoveryParams.get("type") === "recovery"
+  ? recoveryParams.get("access_token")
+  : "";
+
+if (recoveryAccessToken) {
+  passwordRecoveryDialog.showModal();
+} else if (recoveryParams.get("error_description")) {
+  loginStatus.textContent = decodeURIComponent(recoveryParams.get("error_description"));
+  loginDialog.showModal();
+}
+
+passwordRecoveryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const password = document.querySelector("#recovery-password").value;
+  const confirmation = document.querySelector("#recovery-password-confirmation").value;
+  const submitButton = passwordRecoveryForm.querySelector('[type="submit"]');
+  passwordRecoveryStatus.textContent = "";
+
+  if (password !== confirmation) {
+    passwordRecoveryStatus.textContent = "Las contraseñas no coinciden";
+    return;
+  }
+
+  submitButton.disabled = true;
+  passwordRecoveryStatus.textContent = "Guardando la contraseña...";
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${recoveryAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ password })
+    });
+    const user = await response.json();
+    if (!response.ok) throw new Error(user.msg || user.message || "No se pudo cambiar la contraseña");
+
+    const expiresIn = Number(recoveryParams.get("expires_in")) || 3600;
+    authSession = {
+      access_token: recoveryAccessToken,
+      refresh_token: recoveryParams.get("refresh_token") || "",
+      expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+      user
+    };
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(authSession));
+    history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    passwordRecoveryStatus.textContent = "Contraseña actualizada correctamente";
+    setTimeout(() => {
+      passwordRecoveryDialog.close();
+      updateLoginButtons(user.email?.split("@")[0] || "");
+      render();
+    }, 900);
+  } catch (error) {
+    passwordRecoveryStatus.textContent = error.message;
   } finally {
     submitButton.disabled = false;
   }
@@ -1382,11 +1502,15 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
 }
 
 async function supabaseRequest(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+  const authorizationToken = method === "GET"
+    ? getSupabaseAnonKey()
+    : authSession?.access_token || getSupabaseAnonKey();
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
       apikey: getSupabaseAnonKey(),
-      Authorization: `Bearer ${getSupabaseAnonKey()}`,
+      Authorization: `Bearer ${authorizationToken}`,
       "Content-Type": "application/json",
       ...(options.headers || {})
     }
@@ -1434,15 +1558,16 @@ async function supabaseDeletePlayerPhoto(path) {
 }
 
 async function supabaseStorageRequest(path, options = {}) {
+  const accessToken = await getValidAccessToken();
   const response = await fetch(`${SUPABASE_URL}/storage/v1/${path}`, {
     ...options,
     headers: {
       apikey: getSupabaseAnonKey(),
-      Authorization: `Bearer ${authSession?.access_token || getSupabaseAnonKey()}`,
+      Authorization: `Bearer ${accessToken}`,
       ...(options.headers || {})
     }
   });
-  if (!response.ok) throw new Error(await response.text());
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   const text = await response.text();
   if (!text) return null;
   const contentType = response.headers.get("content-type") || "";
@@ -1470,7 +1595,9 @@ async function savePlayerPhoto(file, playerId) {
     };
   } catch (error) {
     console.error(error);
-    alert("No se pudo subir la foto. El jugador se guardará sin la nueva imagen para evitar que se pierdan sus datos al actualizar.");
+    let detail = "";
+    try { detail = JSON.parse(error.message)?.message || error.message; } catch { detail = error.message; }
+    alert(`No se pudo subir la foto.\nError: ${detail}`);
     return null;
   }
 }
@@ -1968,6 +2095,36 @@ function recoveredTeamName(id) {
     .join(" ");
 }
 
+function teamRelevance(item) {
+  const value = `${item.id} ${item.name}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+  const category = value.includes("regional")
+    ? "regional"
+    : value.includes("juvenil") && value.includes("nacional")
+      ? "juvenil-nacional"
+      : value.includes("juvenil") && (value.includes("-b") || /\bb\b/.test(value))
+        ? "juvenil-b"
+        : value.includes("cadete")
+          ? "cadete"
+          : value.includes("infantil")
+            ? "infantil"
+            : value.includes("alevin") && /\ba\b/.test(value)
+              ? "alevin-a"
+              : value.includes("alevin") && /\bb\b/.test(value)
+                ? "alevin-b"
+                : value.includes("prebenjamin")
+                  ? "prebenjamin"
+                  : value.includes("benjamin") && /\ba\b/.test(value)
+                    ? "benjamin-a"
+                    : value.includes("benjamin") && /\bb\b/.test(value)
+                      ? "benjamin-b"
+                      : "";
+  const priority = TEAM_RELEVANCE.indexOf(category);
+  return priority === -1 ? TEAM_RELEVANCE.length : priority;
+}
+
 function repairMissingTeams() {
   const before = JSON.stringify(state.teams || []);
   syncTeamsFromData();
@@ -2075,7 +2232,8 @@ function render() {
   contextActionButton.style.display = ["detail", "playerDetail", "standings", "statistics"].includes(state.activeView) ? "none" : "inline-flex";
   addMatchVideoButton.style.display = state.activeView === "matches" ? "inline-flex" : "none";
   toolbarTeamSelectorWrap.style.display = state.activeView === "squad" ? "flex" : "none";
-  toolbarTeamSelector.innerHTML = state.teams
+  toolbarTeamSelector.innerHTML = [...state.teams]
+    .sort((first, second) => teamRelevance(first) - teamRelevance(second) || first.name.localeCompare(second.name, "es"))
     .map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === state.activeTeamId ? "selected" : ""}>${escapeHtml(item.name)}</option>`)
     .join("");
   pageTitle.textContent = pageTitleForView(state.activeView);

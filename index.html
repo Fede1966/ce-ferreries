@@ -45,10 +45,6 @@
             </div>
             <h1>CE Ferreries</h1>
             <p>Tradición, formación y sentimiento azulgrana desde 1923.</p>
-            <div class="landing-season-actions">
-              <a class="landing-primary-action" href="?temporada=2026-2027">Temporada 2026-2027</a>
-              <a class="landing-secondary-action" href="?temporada=2025-2026">Temporada 2025-2026</a>
-            </div>
           </div>
           <div class="landing-centenary-badge" aria-label="Centenario CE Ferreries, 1923-2023">
             <span>100</span>
@@ -348,7 +344,7 @@
         <p class="meta">Los visitantes pueden navegar en modo consulta. Identifícate para editar.</p>
         <label>
           Usuario
-          <input id="login-username" required autocomplete="username" placeholder="admin" />
+          <input id="login-username" required autocomplete="username" placeholder="Usuario" />
         </label>
         <label>
           Contraseña
@@ -361,6 +357,30 @@
         <div class="modal-actions">
           <button class="secondary-button" id="cancel-login-button" type="button">Cancelar</button>
           <button class="primary-button" type="submit">Entrar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="password-recovery-dialog" class="modal">
+      <form id="password-recovery-form" class="modal-card login-modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Recuperación de acceso</p>
+            <h2>Cambiar contraseña</h2>
+          </div>
+        </div>
+        <p class="meta">Introduce la contraseña nueva para finalizar la recuperación de la cuenta.</p>
+        <label>
+          Nueva contraseña
+          <input id="recovery-password" required type="password" autocomplete="new-password" minlength="8" />
+        </label>
+        <label>
+          Repetir contraseña
+          <input id="recovery-password-confirmation" required type="password" autocomplete="new-password" minlength="8" />
+        </label>
+        <p class="login-status" id="password-recovery-status" role="status"></p>
+        <div class="modal-actions">
+          <button class="primary-button" type="submit">Guardar contraseña</button>
         </div>
       </form>
     </dialog>
@@ -409,6 +429,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
-    <script src="app.js?v=20260717-23"></script>
+    <script src="app.js?v=20260728-1"></script>
   </body>
 </html>
