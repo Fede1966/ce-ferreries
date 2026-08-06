@@ -1581,9 +1581,6 @@ async function savePlayerPhoto(file, playerId) {
 
   try {
     const path = `${playerId}/${Date.now()}-${safeFileName(file.name)}`;
-    const token = await getValidAccessToken();
-    let tokenRole = "?";
-    try { tokenRole = JSON.parse(atob(token.split(".")[1])).role; } catch {}
     await supabaseStorageRequest(`object/${PLAYER_PHOTOS_BUCKET}/${path}`, {
       method: "POST",
       headers: {
@@ -1597,11 +1594,7 @@ async function savePlayerPhoto(file, playerId) {
     };
   } catch (error) {
     console.error(error);
-    let detail = "";
-    try { detail = JSON.parse(error.message)?.message || error.message; } catch { detail = error.message; }
-    let tokenRole = "?";
-    try { const t = await getValidAccessToken(); tokenRole = JSON.parse(atob(t.split(".")[1])).role; } catch {}
-    alert(`No se pudo subir la foto.\nError: ${detail}\nToken role: ${tokenRole}`);
+    alert("No se pudo subir la foto. El jugador se guardará sin la nueva imagen.");
     return null;
   }
 }
