@@ -925,7 +925,7 @@ matchForm.addEventListener("submit", (event) => {
     },
     notes: existing?.notes || "",
     videoUrl: existing?.videoUrl || "",
-    actaDuration: Number(existing?.actaDuration) || 80,
+    actaDuration: resolveActaDuration(existing?.actaDuration, existing?.teamId || state.activeTeamId, existing?.actaPlayers),
     actaPlayers: existing?.actaPlayers || {},
     actaFileUrl: existing?.actaFileUrl || "",
     actaFilePath: existing?.actaFilePath || "",
@@ -1143,7 +1143,7 @@ function loadState() {
             teamId: item.teamId || DEFAULT_TEAM_ID,
             competition: item.competition || "league",
             time: item.time || "",
-            actaDuration: Number(item.actaDuration) || 80,
+            actaDuration: resolveActaDuration(item.actaDuration, item.teamId || DEFAULT_TEAM_ID, item.actaPlayers),
             actaPlayers: item.actaPlayers || {},
             actaFileUrl: item.actaFileUrl || "",
             actaFilePath: item.actaFilePath || "",
@@ -1813,7 +1813,7 @@ function fromRemoteMatch(item, lineupData, plan) {
     away: item.away,
     date: item.date || "",
     time: lineupData?.time || "",
-    actaDuration: Number(lineupData?.actaDuration) || 80,
+    actaDuration: resolveActaDuration(lineupData?.actaDuration, lineupData?.teamId || DEFAULT_TEAM_ID, lineupData?.actaPlayers),
     actaPlayers: lineupData?.actaPlayers || {},
     actaFileUrl: lineupData?.actaFileUrl || "",
     actaFilePath: lineupData?.actaFilePath || "",
@@ -1846,7 +1846,7 @@ function toRemoteLineup(item) {
       __teamStats: normalizeTeamMatchStats(item.teamStats),
       __competition: item.competition || "league",
       __matchTime: item.time || "",
-      __actaDuration: Number(item.actaDuration) || 80,
+      __actaDuration: resolveActaDuration(item.actaDuration, item.teamId || DEFAULT_TEAM_ID, item.actaPlayers),
       __actaPlayers: item.actaPlayers || {},
       __actaFile: {
         url: item.actaFileUrl || "",
@@ -1871,7 +1871,7 @@ function parseRemoteLineup(value) {
   const teamStats = normalizeTeamMatchStats(lineup.__teamStats);
   const competition = lineup.__competition || "league";
   const time = lineup.__matchTime || "";
-  const actaDuration = Number(lineup.__actaDuration) || 80;
+  const actaDuration = resolveActaDuration(lineup.__actaDuration, lineup.__teamId, lineup.__actaPlayers);
   const actaPlayers = lineup.__actaPlayers || {};
   const actaFile = lineup.__actaFile || {};
   const notes = lineup.__matchNotes || "";
@@ -3078,7 +3078,7 @@ function renderMatchStats(item, body) {
     return;
   }
 
-  const duration = Number(item.actaDuration) || 80;
+  const duration = resolveActaDuration(item.actaDuration, item.teamId, item.actaPlayers);
 
   const playerData = players.map((playerItem) => {
     const acta = item.actaPlayers?.[playerItem.id];
@@ -3207,8 +3207,25 @@ function matchItemActaLink(item) {
     : "";
 }
 
+// Duración reglamentaria por categoría (minutos). Cadete: 80; resto (Juvenil, Regional...): 90.
+const MATCH_DURATION_BY_TEAM_KEYWORD = [["cadete", 80]];
+function defaultActaDuration(teamId) {
+  const id = String(teamId || "").toLowerCase();
+  const found = MATCH_DURATION_BY_TEAM_KEYWORD.find(([keyword]) => id.includes(keyword));
+  return found ? found[1] : 90;
+}
+// Si no hay duración guardada usa la de la categoría. Un 80 guardado por el antiguo valor
+// por defecto en una categoría que no es Cadete, sin acta importada, se corrige a la de su categoría.
+function resolveActaDuration(stored, teamId, actaPlayers) {
+  const saved = Number(stored) || 0;
+  const fallback = defaultActaDuration(teamId);
+  if (!saved) return fallback;
+  if (saved === 80 && fallback !== 80 && !Object.keys(actaPlayers || {}).length) return fallback;
+  return saved;
+}
+
 function openMatchReportImport(matchItem) {
-  const duration = Number(matchItem.actaDuration) || 80;
+  const duration = resolveActaDuration(matchItem.actaDuration, matchItem.teamId, matchItem.actaPlayers);
   actaFileInput.value = "";
   document.querySelector("#acta-match-id").value = matchItem.id;
   document.querySelector("#acta-duration").value = duration;
