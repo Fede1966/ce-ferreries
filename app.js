@@ -1170,20 +1170,37 @@ matchVideoForm.addEventListener("submit", (event) => {
   render();
 });
 
-teamForm.addEventListener("submit", (event) => {
+teamForm.addEventListener("submit", async (event) => {
   if (event.submitter?.value === "cancel") return;
   event.preventDefault();
   const teamId = document.querySelector("#team-id").value;
   const name = document.querySelector("#team-name").value.trim();
   if (!name) return;
+  const photoFile = document.querySelector("#team-photo-file").files[0];
+  const removePhoto = document.querySelector("#team-photo-remove").checked;
+  let targetId = teamId;
   if (teamId) {
     renameTeam(teamId, name);
   } else {
     const id = uniqueTeamId(name);
     state.teams.push({ id, name });
+    targetId = id;
     state.activeTeamId = id;
     state.selectedPlayerId = "";
     state.selectedMatchId = "";
+  }
+  const teamItem = state.teams.find((team) => team.id === targetId);
+  if (teamItem && photoFile) {
+    const uploaded = await saveTeamPhoto(photoFile, targetId);
+    if (uploaded) {
+      if (teamItem.photoPath) await removeStoragePath(teamItem.photoPath);
+      teamItem.photoUrl = uploaded.url;
+      teamItem.photoPath = uploaded.path;
+    }
+  } else if (teamItem && removePhoto && teamItem.photoUrl) {
+    if (teamItem.photoPath) await removeStoragePath(teamItem.photoPath);
+    delete teamItem.photoUrl;
+    delete teamItem.photoPath;
   }
   saveState();
   teamDialog.close();
@@ -1988,6 +2005,63 @@ async function savePlayerPhoto(file, playerId) {
   }
 }
 
+async function resizeImageFile(file, maxSide = 1600, quality = 0.85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("No se pudo leer la imagen."));
+      image.src = url;
+    });
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    return blob || file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function saveTeamPhoto(file, teamId) {
+  if (!hasSupabaseConfig()) {
+    alert("No se puede subir la foto sin conexión con la base de datos.");
+    return null;
+  }
+  try {
+    const blob = await resizeImageFile(file);
+    const path = `teams/${teamId}/${Date.now()}.jpg`;
+    await supabaseStorageRequest(`object/${PLAYER_PHOTOS_BUCKET}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "image/jpeg" },
+      body: blob
+    });
+    return {
+      path,
+      url: `${SUPABASE_URL}/storage/v1/object/public/${PLAYER_PHOTOS_BUCKET}/${encodeStoragePath(path)}`
+    };
+  } catch (error) {
+    console.error(error);
+    alert("No se pudo subir la foto del equipo.");
+    return null;
+  }
+}
+
+async function removeStoragePath(path) {
+  try {
+    await supabaseStorageRequest(`object/${PLAYER_PHOTOS_BUCKET}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefixes: [path] })
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function uploadActaFile(file, matchId) {
   if (!hasSupabaseConfig() || !canEdit()) return null;
   try {
@@ -2114,7 +2188,7 @@ function applyRemoteAppState(remoteAppState, preferLocal) {
     const remoteTeams = remoteAppState.teams
       .filter((item) => item?.id && item?.name)
       .filter((item) => !REMOVED_TEAM_IDS.has(String(item.id)))
-      .map((item) => ({ id: String(item.id), name: String(item.name) }));
+      .map((item) => ({ id: String(item.id), name: String(item.name), ...(item.photoUrl ? { photoUrl: String(item.photoUrl), photoPath: String(item.photoPath || "") } : {}) }));
     const teamsById = new Map(
       (preferLocal ? [...remoteTeams, ...state.teams] : [...state.teams, ...remoteTeams]).map((item) => [
         item.id,
@@ -2389,6 +2463,11 @@ function openTeamDialog(teamId = "") {
   document.querySelector("#team-modal-title").textContent = item ? "Editar equipo" : "Nuevo equipo";
   document.querySelector("#team-id").value = item?.id || "";
   document.querySelector("#team-name").value = item?.name || "";
+  document.querySelector("#team-photo-file").value = "";
+  document.querySelector("#team-photo-remove").checked = false;
+  const photoEdit = document.querySelector("#team-photo-edit");
+  photoEdit.hidden = !item?.photoUrl;
+  document.querySelector("#team-photo-preview").src = item?.photoUrl || "";
   document.querySelector("#save-team-button").textContent = item ? "Guardar cambios" : "Crear equipo";
   deleteTeamButton.style.display = item ? "inline-flex" : "none";
   teamDialog.showModal();
@@ -2685,6 +2764,7 @@ function renderSquad() {
   );
   const pendingPlayers = players.filter((item) => !groupedPlayerIds.has(item.id));
   views.squad.innerHTML = `
+    ${currentTeam().photoUrl ? `<figure class="team-photo-banner"><img src="${escapeHtml(currentTeam().photoUrl)}" alt="Foto de ${escapeHtml(currentTeam().name)}" loading="lazy" /></figure>` : ""}
     <div class="team-switcher panel">
       <div class="team-switcher-summary">
         <strong>${escapeHtml(currentTeam().name)}</strong>

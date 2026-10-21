@@ -3246,3 +3246,47 @@ button:focus-visible {
     grid-template-columns: 34px 1fr;
   }
 }
+
+.team-photo-banner {
+  margin: 0 0 18px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.team-photo-banner img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+.team-photo-edit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.team-photo-edit img {
+  width: 120px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.team-photo-remove {
+  white-space: nowrap;
+  flex-direction: row;
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .team-photo-banner img { max-height: 220px; }
+}

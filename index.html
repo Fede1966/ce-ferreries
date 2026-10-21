@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CE Ferreries | Gestión técnica</title>
-    <link rel="stylesheet" href="styles.css?v=20260806-2" />
+    <link rel="stylesheet" href="styles.css?v=20261021-3" />
   </head>
   <body>
     <section class="landing-page" id="landing-page">
@@ -121,6 +121,14 @@
           Nombre del equipo
           <input id="team-name" required maxlength="60" placeholder="Ejemplo: Athletic Club Juvenil A" />
         </label>
+        <label>
+          Foto de equipo (opcional)
+          <input id="team-photo-file" type="file" accept="image/*" />
+        </label>
+        <div class="team-photo-edit" id="team-photo-edit" hidden>
+          <img id="team-photo-preview" alt="Foto actual del equipo" />
+          <label class="team-photo-remove"><input type="checkbox" id="team-photo-remove" /> Quitar foto</label>
+        </div>
         <div class="modal-actions">
           <button class="danger-button" id="delete-team-button" type="button">Eliminar equipo</button>
           <button class="secondary-button" value="cancel" type="submit" formnovalidate>Cancelar</button>
@@ -453,6 +461,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
     <script src="acta-fiche.js?v=20261021-2"></script>
-    <script src="app.js?v=20261021-2"></script>
+    <script src="app.js?v=20261021-3"></script>
   </body>
 </html>
