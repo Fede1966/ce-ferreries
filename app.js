@@ -3458,11 +3458,21 @@ function renderMatchStats(item, body) {
   const playerData = players.map((playerItem) => {
     const acta = item.actaPlayers?.[playerItem.id];
     const report = playerReport(playerItem, item.id);
-    const role = acta?.role || (report.minutes > 0 ? "starter" : "none");
-    const entry = Number(acta?.entry) || 0;
-    const exitVal = (acta?.exit != null && acta?.exit !== "") ? Number(acta.exit) : duration;
-    const minutes = (acta && acta.role && acta.role !== "none")
-      ? Math.max(0, exitVal - entry)
+    // Si el jugador figura en la alineación del partido pero no tiene registro de acta, se usa la alineación
+    const sheetRow = (item.lineupSheets?.[ownTeamSide(item)] || []).find((row) => row.playerId === playerItem.id);
+    const sheetMinute = sheetRow && sheetRow.changeMinute !== "" && sheetRow.changeMinute != null ? Number(sheetRow.changeMinute) : null;
+    const role = acta?.role || (sheetRow ? (sheetRow.role === "substitute" ? "substitute" : "starter") : report.minutes > 0 ? "starter" : "none");
+    let entry = Number(acta?.entry) || 0;
+    // Un titular sin cambio juega todo el partido: una salida vacía o en 0 no significa "0 minutos"
+    let exitVal = Number(acta?.exit) > 0 ? Number(acta.exit) : duration;
+    if (role === "starter") {
+      entry = 0;
+      if (!(Number(acta?.exit) > 0) && sheetMinute != null && sheetMinute > 0) exitVal = sheetMinute;
+    } else if (role === "substitute" && !(Number(acta?.entry) > 0) && sheetMinute != null) {
+      entry = sheetMinute;
+    }
+    const minutes = role !== "none" && (acta?.role || sheetRow)
+      ? Math.max(0, Math.min(duration, exitVal) - entry)
       : report.minutes;
     return {
       playerItem,
