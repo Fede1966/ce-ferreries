@@ -217,6 +217,8 @@ const views = {
 const pageTitle = document.querySelector("#page-title");
 const seasonLabel = document.querySelector("#season-label");
 const contextActionButton = document.querySelector("#context-action-button");
+const createMatchFromActaButton = document.querySelector("#create-match-from-acta-button");
+const createMatchActaInput = document.querySelector("#create-match-acta-input");
 const toolbarTeamSelectorWrap = document.querySelector("#toolbar-team-selector-wrap");
 const toolbarTeamSelector = document.querySelector("#toolbar-team-selector");
 const playerDialog = document.querySelector("#player-dialog");
@@ -393,46 +395,187 @@ actaFileInput.addEventListener("change", async () => {
   else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) await analyzeActaPdf(file);
 });
 
+async function parseActaFichePdf(file) {
+  if (!window.pdfjsLib || !window.ActaFiche) throw new Error("No se ha podido cargar el lector de PDF.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  return ActaFiche.parse(pdf, (width, height) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return { canvas, ctx: canvas.getContext("2d", { willReadFrequently: true }) };
+  });
+}
+
+// Lado del acta (home/away) que corresponde a nuestro equipo
+function actaOwnSide(parsed, matchItem) {
+  const club = normalizeSearchText(currentTeam()?.name || TEAM_NAME).includes("ferreries") ? "ferreries" : "";
+  const isOwn = (name) => club && normalizeSearchText(name).includes(club);
+  if (isOwn(parsed.home) && !isOwn(parsed.away)) return "home";
+  if (isOwn(parsed.away) && !isOwn(parsed.home)) return "away";
+  return matchItem ? ownTeamSide(matchItem) : "home";
+}
+
+// Rellena la tabla del diálogo "Importar acta" con lo leído de la ficha. Devuelve un resumen.
+function applyParsedActaToDialog(parsed, ownSide) {
+  const lineup = parsed.lineups[ownSide];
+  const rows = [...document.querySelectorAll("#acta-player-rows tr")].map((row) => {
+    const player = state.players.find((item) => item.id === row.dataset.playerId);
+    return { row, number: Number(player?.number) || 0, tokens: normalizeSearchText(player?.name).split(" ").filter((token) => token.length > 2) };
+  });
+  const find = (actaName, number) => {
+    const words = normalizeSearchText(actaName).split(" ").filter((token) => token.length > 2);
+    const scored = rows
+      .map((entry) => ({ entry, hits: entry.tokens.filter((token) => words.includes(token)).length }))
+      .filter((candidate) => candidate.hits >= 2 || (candidate.hits >= 1 && candidate.entry.tokens.length <= 1))
+      .sort((a, b) => b.hits - a.hits);
+    if (scored.length) return scored[0].entry;
+    const byNumber = rows.filter((entry) => entry.number === Number(number));
+    return byNumber.length === 1 ? byNumber[0] : null;
+  };
+  const numbers = new Map([...lineup.starters, ...lineup.bench].map((p) => [p.name, p.num]));
+  const sin = [];
+  const set = (entry, selector, value) => { entry.row.querySelector(selector).value = value; };
+  rows.forEach((entry) => {
+    set(entry, "[data-acta-role]", "none");
+    set(entry, "[data-acta-entry]", "");
+    set(entry, "[data-acta-exit]", "");
+    set(entry, "[data-acta-goals]", 0);
+    set(entry, "[data-acta-yellow]", 0);
+    set(entry, "[data-acta-red]", 0);
+  });
+  const duration = Number(document.querySelector("#acta-duration").value) || 90;
+  lineup.starters.forEach((p) => {
+    const entry = find(p.name, p.num);
+    if (!entry) { sin.push(p.name); return; }
+    set(entry, "[data-acta-role]", "starter");
+    set(entry, "[data-acta-entry]", 0);
+  });
+  lineup.subs.forEach((change) => {
+    const out = find(change.out, numbers.get(change.out));
+    const incoming = change.in ? find(change.in, numbers.get(change.in)) : null;
+    if (out) set(out, "[data-acta-exit]", change.minute);
+    else sin.push(change.out);
+    if (incoming) {
+      set(incoming, "[data-acta-role]", "substitute");
+      set(incoming, "[data-acta-entry]", change.minute);
+    } else if (change.in) sin.push(change.in);
+  });
+  parsed.goals.filter((goal) => goal.team === ownSide && goal.type !== "own_goal").forEach((goal) => {
+    const entry = find(goal.player, numbers.get(goal.player));
+    if (!entry) { sin.push(goal.player); return; }
+    set(entry, "[data-acta-goals]", Number(entry.row.querySelector("[data-acta-goals]").value || 0) + 1);
+  });
+  lineup.cards.forEach((card) => {
+    const entry = find(card.player, numbers.get(card.player));
+    if (!entry) { sin.push(card.player); return; }
+    const selector = card.color === "red" ? "[data-acta-red]" : "[data-acta-yellow]";
+    set(entry, selector, Number(entry.row.querySelector(selector).value || 0) + 1);
+  });
+  document.querySelector("#acta-score").value = parsed.score;
+  void duration;
+  const ownGoals = parsed.goals.filter((goal) => goal.team !== ownSide && goal.type === "own_goal").length;
+  return { starters: lineup.starters.length, subs: lineup.subs.length, sin: [...new Set(sin)], ownGoals };
+}
+
+function describeActaResult(result) {
+  const parts = [`PDF leído: ${result.starters} titulares y ${result.subs} cambios.`];
+  if (result.ownGoals) parts.push(`${result.ownGoals} gol(es) en propia puerta del rival.`);
+  if (result.sin.length) parts.push(`No he encontrado en tu plantilla a: ${result.sin.join(", ")}. Revísalos a mano.`);
+  parts.push("Revisa la tabla y confirma el acta.");
+  return parts.join(" ");
+}
+
 async function analyzeActaPdf(file) {
   const status = document.querySelector("#acta-import-status");
-  if (!window.pdfjsLib) {
-    status.textContent = "No se ha podido cargar el lector de PDF. Prueba de nuevo o adjunta una imagen.";
-    return;
-  }
   status.textContent = "Leyendo el PDF original...";
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-    const documentData = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: documentData }).promise;
+    const parsed = await parseActaFichePdf(file);
     const matchItem = state.matches.find((item) => item.id === document.querySelector("#acta-match-id").value);
-    const ownSide = matchItem ? ownTeamSide(matchItem) : "home";
-    const allLines = [];
-    const teamLines = [];
-    const goalLines = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1 });
-      const content = await page.getTextContent();
-      allLines.push(...pdfTextLines(content.items));
-      const teamItems = content.items.filter((item) => {
-        const ratio = Number(item.transform?.[4] || 0) / viewport.width;
-        return ownSide === "away" ? ratio >= .61 : ratio >= .31 && ratio < .61;
-      });
-      teamLines.push(...pdfTextLines(teamItems));
-      goalLines.push(...pdfTextLines(content.items.filter((item) => Number(item.transform?.[4] || 0) / viewport.width < .31)));
-    }
-    const filled = populateActaFromOcr(allLines.join("\n"), {
-      roster: teamLines.join("\n"),
-      substitutions: teamLines.join("\n"),
-      goals: goalLines.join("\n")
-    });
-    status.textContent = filled
-      ? `PDF leído correctamente: ${filled} registros identificados. Revisa y confirma el acta.`
-      : "El PDF contiene texto, pero no se han podido asociar jugadores. Revisa la tabla antes de confirmar.";
+    const result = applyParsedActaToDialog(parsed, actaOwnSide(parsed, matchItem));
+    status.textContent = describeActaResult(result);
   } catch (error) {
     console.error("Error leyendo el PDF del acta", error);
-    status.textContent = "No se ha podido leer este PDF. Prueba con el archivo original descargado de la FFIB.";
+    status.textContent = error instanceof Error && /escaneo|ficha de partido/.test(error.message)
+      ? error.message + " Descarga el PDF original de la FFIB e inténtalo de nuevo."
+      : "No se ha podido leer este PDF. Prueba con el archivo original descargado de la FFIB.";
   }
+}
+
+createMatchFromActaButton.addEventListener("click", () => {
+  createMatchActaInput.value = "";
+  createMatchActaInput.click();
+});
+
+createMatchActaInput.addEventListener("change", async () => {
+  const file = createMatchActaInput.files[0];
+  if (!file) return;
+  let parsed;
+  try {
+    parsed = await parseActaFichePdf(file);
+  } catch (error) {
+    console.error("Error leyendo el acta", error);
+    alert(error instanceof Error && /escaneo|ficha de partido/.test(error.message)
+      ? `${error.message} Descarga el PDF original de la FFIB (no una foto) e inténtalo de nuevo.`
+      : "No se ha podido leer este PDF. Prueba con el archivo original descargado de la FFIB.");
+    return;
+  }
+  const ownSide = actaOwnSide(parsed, null);
+  const opponent = ownSide === "home" ? parsed.away : parsed.home;
+  const isoDate = parsed.date ? parsed.date.split("-").reverse().join("-") : "";
+  const ownName = currentTeam().name;
+  const duplicate = activeMatches().find((item) =>
+    (parsed.round && item.round === parsed.round && item.competition !== "friendly")
+    || (item.date && item.date === isoDate && normalizeSearchText(ownSide === "home" ? item.away : item.home) === normalizeSearchText(opponent)));
+  let matchItem = duplicate;
+  if (duplicate) {
+    if (!confirm(`Ya existe un partido de la jornada ${duplicate.round} (${duplicate.home} - ${duplicate.away}). ¿Quieres cargar este acta en ese partido en vez de crear uno nuevo?`)) return;
+  } else {
+    matchItem = {
+      id: crypto.randomUUID(),
+      updatedAt: Date.now(),
+      teamId: state.activeTeamId,
+      competition: "league",
+      round: parsed.round || nextRound(),
+      date: isoDate,
+      time: parsed.time,
+      home: ownSide === "home" ? ownName : titleCaseTeam(parsed.home),
+      away: ownSide === "away" ? ownName : titleCaseTeam(parsed.away),
+      status: "Jugado",
+      score: parsed.score,
+      teamStats: normalizeTeamMatchStats(),
+      notes: "",
+      videoUrl: "",
+      actaDuration: defaultActaDuration(state.activeTeamId),
+      actaPlayers: {},
+      actaFileUrl: "",
+      actaFilePath: "",
+      actaFileName: "",
+      actaFileType: "",
+      lineupSheets: null,
+      lineup: {},
+      formation: DEFAULT_FORMATION,
+      plan: emptyPlan()
+    };
+    state.matches.push(matchItem);
+  }
+  Object.assign(matchItem, { date: isoDate || matchItem.date, time: parsed.time || matchItem.time, status: "Jugado" });
+  state.selectedMatchId = matchItem.id;
+  saveState();
+  render();
+  openMatchReportImport(matchItem);
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  actaFileInput.files = transfer.files;
+  document.querySelector("#acta-file-preview").innerHTML = `<span>PDF seleccionado: ${escapeHtml(file.name)}</span>`;
+  const result = applyParsedActaToDialog(parsed, ownSide);
+  document.querySelector("#acta-import-status").textContent =
+    `${duplicate ? "Acta cargada en el partido existente" : `Partido creado: jornada ${matchItem.round} contra ${opponent}`}. ${describeActaResult(result)}`;
+});
+
+function titleCaseTeam(name) {
+  return String(name || "").toLocaleLowerCase("es").replace(/(^|[\s(.-])(\S)/g, (m, sep, ch) => sep + ch.toLocaleUpperCase("es"))
+    .replace(/\bAtº\b/i, "Atº").replace(/\b(Cd|Ce|Cf|Ud|Sd|Fc|Rcd)\b/g, (w) => w.toUpperCase());
 }
 
 function pdfTextLines(items) {
@@ -2243,6 +2386,7 @@ function render() {
 
   contextActionButton.textContent = state.activeView === "matches" ? "Añadir partido" : "Añadir jugador";
   contextActionButton.style.display = ["detail", "playerDetail", "standings", "statistics"].includes(state.activeView) ? "none" : "inline-flex";
+  createMatchFromActaButton.hidden = !(state.activeView === "matches" && canEdit());
   addMatchVideoButton.style.display = state.activeView === "matches" ? "inline-flex" : "none";
   toolbarTeamSelectorWrap.style.display = state.activeView === "squad" ? "flex" : "none";
   toolbarTeamSelector.innerHTML = [...state.teams]

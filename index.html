@@ -93,6 +93,8 @@
           </div>
           <div class="toolbar-actions">
             <button class="secondary-button" id="add-match-video-button" type="button">Añadir vídeo</button>
+            <button class="secondary-button" id="create-match-from-acta-button" type="button" hidden>Crear partido desde acta</button>
+            <input id="create-match-acta-input" type="file" accept=".pdf,application/pdf" hidden />
             <button class="primary-button" id="context-action-button" type="button">Añadir jugador</button>
           </div>
         </section>
@@ -430,6 +432,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
-    <script src="app.js?v=20260728-1"></script>
+    <script src="acta-fiche.js?v=20261021-1"></script>
+    <script src="app.js?v=20261021-1"></script>
   </body>
 </html>
