@@ -219,6 +219,9 @@ const seasonLabel = document.querySelector("#season-label");
 const contextActionButton = document.querySelector("#context-action-button");
 const createMatchFromActaButton = document.querySelector("#create-match-from-acta-button");
 const createMatchActaInput = document.querySelector("#create-match-acta-input");
+const bulkActaButton = document.querySelector("#bulk-acta-button");
+const bulkActaInput = document.querySelector("#bulk-acta-input");
+const bulkActaDialog = document.querySelector("#bulk-acta-dialog");
 const toolbarTeamSelectorWrap = document.querySelector("#toolbar-team-selector-wrap");
 const toolbarTeamSelector = document.querySelector("#toolbar-team-selector");
 const playerDialog = document.querySelector("#player-dialog");
@@ -421,16 +424,12 @@ function applyParsedActaToDialog(parsed, ownSide) {
   const lineup = parsed.lineups[ownSide];
   const rows = [...document.querySelectorAll("#acta-player-rows tr")].map((row) => {
     const player = state.players.find((item) => item.id === row.dataset.playerId);
-    return { row, number: Number(player?.number) || 0, tokens: normalizeSearchText(player?.name).split(" ").filter((token) => token.length > 2) };
+    return { row, name: player?.name || "", number: Number(player?.number) || 0, tokens: nameTokens(player?.name) };
   });
   const find = (actaName, number) => {
-    const words = normalizeSearchText(actaName).split(" ").filter((token) => token.length > 2);
-    const scored = rows
-      .map((entry) => ({ entry, hits: entry.tokens.filter((token) => words.includes(token)).length }))
-      .filter((candidate) => candidate.hits >= 2 || (candidate.hits >= 1 && candidate.entry.tokens.length <= 1))
-      .sort((a, b) => b.hits - a.hits);
-    if (scored.length) return scored[0].entry;
-    const byNumber = rows.filter((entry) => entry.number === Number(number));
+    const named = rows.filter((entry) => nameMatches(actaName, entry.name));
+    if (named.length) return named.sort((a, b) => b.tokens.length - a.tokens.length)[0];
+    const byNumber = rows.filter((entry) => entry.number === Number(number) && !entry.name.trim());
     return byNumber.length === 1 ? byNumber[0] : null;
   };
   const numbers = new Map([...lineup.starters, ...lineup.bench].map((p) => [p.name, p.num]));
@@ -575,6 +574,233 @@ createMatchActaInput.addEventListener("change", async () => {
   const result = applyParsedActaToDialog(parsed, ownSide);
   document.querySelector("#acta-import-status").textContent =
     `${duplicate ? "Acta cargada en el partido existente" : `Partido creado (${parsed.competition || "sin competición"}, jornada ${matchItem.round}) contra ${opponent}`}. ${describeActaResult(result)}`;
+});
+
+
+// ---------- Comparación de nombres entre actas y plantilla ----------
+function nameTokens(value) {
+  return normalizeSearchText(value).split(" ").filter((token) => token.length >= 2);
+}
+
+// "APELLIDOS, NOMBRE" (acta) frente al nombre del jugador en la app, en cualquier orden.
+// Dos hermanos o primos con los mismos apellidos NO se confunden: el nombre de pila tiene que coincidir.
+function nameMatches(actaName, playerName) {
+  const [surnames, given = ""] = String(actaName).split(",");
+  const S = nameTokens(surnames);
+  const G = nameTokens(given);
+  const A = new Set([...S, ...G]);
+  const P = new Set(nameTokens(playerName));
+  if (!P.size || !A.size) return false;
+  if ([...A].every((token) => P.has(token))) return true;
+  return P.size >= 2 && [...P].every((token) => A.has(token)) && (G.length === 0 || G.some((token) => P.has(token)));
+}
+
+function actaDisplayName(actaName) {
+  const [surnames, given = ""] = String(actaName).split(",");
+  const cap = (text) => text.trim().toLocaleLowerCase("es").replace(/(^|[\s'-])(\S)/g, (m, sep, ch) => sep + ch.toLocaleUpperCase("es"));
+  return `${cap(given)} ${cap(surnames)}`.trim();
+}
+
+// Registro por jugador de nuestro lado, calculado solo con lo que dice el acta
+function computeOwnActaRecords(parsed, ownSide, duration) {
+  const lineup = parsed.lineups[ownSide];
+  const rec = new Map();
+  const blank = () => ({ role: "none", entry: 0, exit: 0, goals: 0, yellowCards: 0, redCards: 0 });
+  [...lineup.starters, ...lineup.bench].forEach((p) => rec.set(p.name, { ...blank(), num: p.num }));
+  lineup.starters.forEach((p) => Object.assign(rec.get(p.name), { role: "starter", entry: 0, exit: duration }));
+  lineup.subs.forEach((change) => {
+    const out = rec.get(change.out);
+    if (out) out.exit = Math.min(duration, change.minute);
+    const incoming = change.in ? rec.get(change.in) : null;
+    if (incoming) Object.assign(incoming, { role: "substitute", entry: Math.min(duration, change.minute), exit: duration });
+  });
+  parsed.goals.filter((goal) => goal.team === ownSide && goal.type !== "own_goal").forEach((goal) => {
+    const r = rec.get(goal.player);
+    if (r) r.goals += 1;
+  });
+  lineup.cards.forEach((card) => {
+    const r = rec.get(card.player);
+    if (!r) return;
+    if (card.color === "red") {
+      r.redCards = 1;
+      if (r.role !== "none" && r.exit > card.minute) r.exit = card.minute;
+    } else r.yellowCards = Math.min(2, r.yellowCards + 1);
+  });
+  return rec;
+}
+
+// ---------- Importación de varias actas ----------
+let bulkPlan = null;
+
+bulkActaButton.addEventListener("click", () => {
+  bulkActaInput.value = "";
+  bulkActaInput.click();
+});
+
+bulkActaInput.addEventListener("change", async () => {
+  const files = [...bulkActaInput.files];
+  if (!files.length) return;
+  document.querySelector("#bulk-acta-body").innerHTML = "";
+  document.querySelector("#confirm-bulk-acta").disabled = true;
+  document.querySelector("#bulk-acta-status").textContent = `Leyendo ${files.length} PDF...`;
+  bulkActaDialog.showModal();
+  const items = [];
+  for (const file of files) {
+    try {
+      items.push({ file, parsed: await parseActaFichePdf(file) });
+    } catch (error) {
+      items.push({ file, error: error instanceof Error ? error.message : "No se ha podido leer este PDF." });
+    }
+  }
+  bulkPlan = buildBulkPlan(items);
+  renderBulkPlan(bulkPlan);
+});
+
+function buildBulkPlan(items) {
+  const roster = activePlayers().map((p) => ({ ref: p, name: p.name, existing: true }));
+  const created = [];
+  const resolve = (actaName, num) => {
+    const found = roster.find((entry) => nameMatches(actaName, entry.name));
+    if (found) { if (num) found.lastNumber = num; return found; }
+    const entry = {
+      ref: null, existing: false, name: actaDisplayName(actaName), lastNumber: num,
+      id: crypto.randomUUID()
+    };
+    roster.push(entry);
+    created.push(entry);
+    return entry;
+  };
+  const duration = defaultActaDuration(state.activeTeamId);
+  const seen = new Set();
+  const plan = { matches: [], created, errors: [] };
+  items
+    .filter((item) => item.parsed)
+    .sort((a, b) => (a.parsed.date || "").split("-").reverse().join("").localeCompare((b.parsed.date || "").split("-").reverse().join("")) || a.parsed.round - b.parsed.round)
+    .forEach((item) => {
+      const parsed = item.parsed;
+      const ownSide = actaOwnSide(parsed, null);
+      const competition = /^\s*copa/i.test(parsed.competition) ? "cup" : /amistos/i.test(parsed.competition) ? "friendly" : "league";
+      const isoDate = parsed.date ? parsed.date.split("-").reverse().join("-") : "";
+      const opponent = ownSide === "home" ? parsed.away : parsed.home;
+      const key = `${competition}|${parsed.round}|${normalizeSearchText(opponent)}`;
+      if (seen.has(key)) { plan.errors.push(`${item.file.name}: repetida en este lote (${opponent}, jornada ${parsed.round}); se ignora.`); return; }
+      seen.add(key);
+      const existing = activeMatches().find((m) =>
+        ((m.competition || "league") === competition && competition !== "friendly" && m.round === parsed.round)
+        || (m.date && m.date === isoDate && normalizeSearchText(ownSide === "home" ? m.away : m.home) === normalizeSearchText(opponent)));
+      const records = computeOwnActaRecords(parsed, ownSide, duration);
+      const players = [...records.entries()].map(([actaName, record]) => ({ actaName, record, entry: resolve(actaName, record.num) }));
+      plan.matches.push({ file: item.file, parsed, ownSide, competition, isoDate, opponent, existing, players, duration });
+    });
+  items.filter((item) => item.error).forEach((item) => plan.errors.push(`${item.file.name}: ${item.error}`));
+  return plan;
+}
+
+function renderBulkPlan(plan) {
+  const own = currentTeam().name;
+  const newByMatch = (m) => m.players.filter((p) => !p.entry.existing && p.record.role !== "none").length;
+  const rows = plan.matches.map((m) => `
+    <tr>
+      <td>${m.parsed.round}</td>
+      <td>${escapeHtml(m.parsed.competition || "")}</td>
+      <td>${escapeHtml(m.opponent)}</td>
+      <td>${escapeHtml(m.parsed.score)} ${m.ownSide === "home" ? "(local)" : "(visitante)"}</td>
+      <td>${escapeHtml(m.parsed.date)}</td>
+      <td>${m.existing ? "Ya existe: se rellenará" : "Partido nuevo"}</td>
+    </tr>`).join("");
+  const newPlayers = plan.created.map((p) => `<li>${p.lastNumber ? `#${p.lastNumber} ` : ""}${escapeHtml(p.name)}</li>`).join("");
+  document.querySelector("#bulk-acta-body").innerHTML = `
+    <p class="meta">Equipo activo: <strong>${escapeHtml(own)}</strong>. Se leen ${plan.matches.length} acta(s). Revisa antes de importar.</p>
+    ${plan.errors.length ? `<div class="login-status">${plan.errors.map(escapeHtml).join("<br>")}</div>` : ""}
+    <div class="acta-table-wrap"><table class="acta-table">
+      <thead><tr><th>Jornada</th><th>Competición</th><th>Rival</th><th>Resultado</th><th>Fecha</th><th>Acción</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <h3>Jugadores nuevos que se crearán (${plan.created.length})</h3>
+    ${plan.created.length ? `<ul class="bulk-new-players">${newPlayers}</ul><p class="meta">Se crean solo con nombre y dorsal. Posición, fecha de nacimiento y foto los completas después.</p>` : `<p class="meta">Todos los jugadores del acta ya están en tu plantilla.</p>`}
+    <p class="meta">Los jugadores con apellidos iguales se distinguen por su nombre de pila. Si ves nombres duplicados en la lista, cancela y avísame.</p>`;
+  void newByMatch;
+  document.querySelector("#confirm-bulk-acta").disabled = !plan.matches.length;
+  document.querySelector("#bulk-acta-status").textContent = plan.matches.length ? "" : "No hay ningún acta válida para importar.";
+}
+
+document.querySelector("#close-bulk-acta").addEventListener("click", () => bulkActaDialog.close());
+document.querySelector("#cancel-bulk-acta").addEventListener("click", () => bulkActaDialog.close());
+
+document.querySelector("#confirm-bulk-acta").addEventListener("click", async () => {
+  if (!bulkPlan) return;
+  const button = document.querySelector("#confirm-bulk-acta");
+  const status = document.querySelector("#bulk-acta-status");
+  button.disabled = true;
+  let uploadFailures = 0;
+  // 1. Jugadores nuevos
+  bulkPlan.created.forEach((entry) => {
+    const playerItem = {
+      id: entry.id, teamId: state.activeTeamId, name: entry.name, number: entry.lastNumber || 0,
+      birthdate: "", position: "Por definir", laterality: "Diestro", photo: "", photoPath: "",
+      description: "", career: "", ratings: normalizePlayerRatings(), reports: {}
+    };
+    state.players.push(playerItem);
+    entry.ref = playerItem;
+  });
+  // 2. Partidos
+  for (const [index, m] of bulkPlan.matches.entries()) {
+    status.textContent = `Importando ${index + 1} de ${bulkPlan.matches.length}...`;
+    const parsed = m.parsed;
+    let matchItem = m.existing;
+    if (!matchItem) {
+      matchItem = {
+        id: crypto.randomUUID(), updatedAt: Date.now(), teamId: state.activeTeamId, competition: m.competition,
+        round: m.competition === "friendly" ? 0 : parsed.round || nextRound(), date: m.isoDate, time: parsed.time,
+        home: m.ownSide === "home" ? currentTeam().name : titleCaseTeam(parsed.home),
+        away: m.ownSide === "away" ? currentTeam().name : titleCaseTeam(parsed.away),
+        status: "Jugado", score: parsed.score, teamStats: normalizeTeamMatchStats(), notes: "", videoUrl: "",
+        actaDuration: m.duration, actaPlayers: {}, actaFileUrl: "", actaFilePath: "", actaFileName: "", actaFileType: "",
+        lineupSheets: null, lineup: {}, formation: DEFAULT_FORMATION, plan: emptyPlan()
+      };
+      state.matches.push(matchItem);
+    }
+    Object.assign(matchItem, { date: m.isoDate || matchItem.date, time: parsed.time || matchItem.time, status: "Jugado", score: parsed.score, actaDuration: m.duration });
+    const uploaded = await uploadActaFile(m.file, matchItem.id);
+    if (uploaded) Object.assign(matchItem, { actaFileUrl: uploaded.url, actaFilePath: uploaded.path, actaFileName: m.file.name, actaFileType: m.file.type });
+    else uploadFailures++;
+    const records = {};
+    let yellowCards = 0;
+    let redCards = 0;
+    m.players.forEach(({ record, entry }) => {
+      const playerItem = entry.ref;
+      if (!playerItem) return;
+      const played = record.role !== "none";
+      const report = ensurePlayerReport(playerItem, matchItem.id);
+      report.minutes = played ? Math.max(0, record.exit - record.entry) : 0;
+      report.goals = played ? record.goals : 0;
+      // Las tarjetas a suplentes que no llegaron a jugar también cuentan
+      report.yellowCards = record.yellowCards;
+      report.redCards = record.redCards;
+      yellowCards += report.yellowCards;
+      redCards += report.redCards;
+      records[playerItem.id] = {
+        role: record.role, entry: played ? record.entry : 0, exit: played ? record.exit : 0,
+        goals: report.goals, yellowCards: report.yellowCards, redCards: report.redCards
+      };
+    });
+    matchItem.actaPlayers = records;
+    matchItem.lineupSheets = normalizeLineupSheets(matchItem.lineupSheets, matchItem);
+    matchItem.lineupSheets[m.ownSide] = Object.entries(records)
+      .filter(([, r]) => r.role !== "none")
+      .map(([playerId, r]) => ({
+        playerId,
+        name: state.players.find((p) => p.id === playerId)?.name || "",
+        role: r.role === "substitute" ? "substitute" : "starter",
+        changeMinute: r.role === "substitute" ? r.entry : r.exit < m.duration ? r.exit : ""
+      }));
+    matchItem.teamStats = { ...normalizeTeamMatchStats(matchItem.teamStats), yellowCards, redCards };
+    markMatchUpdated(matchItem);
+  }
+  saveState();
+  bulkActaDialog.close();
+  bulkPlan = null;
+  render();
+  if (uploadFailures) alert(`Los datos se han guardado, pero ${uploadFailures} acta(s) no han podido subirse como archivo. Puedes adjuntarlas después sin repetir los datos.`);
 });
 
 function titleCaseTeam(name) {
@@ -2391,6 +2617,7 @@ function render() {
   contextActionButton.textContent = state.activeView === "matches" ? "Añadir partido" : "Añadir jugador";
   contextActionButton.style.display = ["detail", "playerDetail", "standings", "statistics"].includes(state.activeView) ? "none" : "inline-flex";
   createMatchFromActaButton.hidden = !(state.activeView === "matches" && canEdit());
+  bulkActaButton.hidden = createMatchFromActaButton.hidden;
   addMatchVideoButton.style.display = state.activeView === "matches" ? "inline-flex" : "none";
   toolbarTeamSelectorWrap.style.display = state.activeView === "squad" ? "flex" : "none";
   toolbarTeamSelector.innerHTML = [...state.teams]

@@ -95,6 +95,8 @@
             <button class="secondary-button" id="add-match-video-button" type="button">Añadir vídeo</button>
             <button class="secondary-button" id="create-match-from-acta-button" type="button" hidden>Crear partido desde acta</button>
             <input id="create-match-acta-input" type="file" accept=".pdf,application/pdf" hidden />
+            <button class="secondary-button" id="bulk-acta-button" type="button" hidden>Importar varias actas</button>
+            <input id="bulk-acta-input" type="file" accept=".pdf,application/pdf" multiple hidden />
             <button class="primary-button" id="context-action-button" type="button">Añadir jugador</button>
           </div>
         </section>
@@ -388,6 +390,24 @@
       </form>
     </dialog>
 
+    <dialog id="bulk-acta-dialog" class="modal">
+      <div class="modal-card acta-modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Importación múltiple</p>
+            <h2>Importar varias actas</h2>
+          </div>
+          <button class="icon-button" id="close-bulk-acta" type="button" aria-label="Cerrar">×</button>
+        </div>
+        <div id="bulk-acta-body"></div>
+        <p class="login-status" id="bulk-acta-status" role="status"></p>
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-bulk-acta" type="button">Cancelar</button>
+          <button class="primary-button" id="confirm-bulk-acta" type="button">Importar</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="match-report-import-dialog" class="modal">
       <form id="match-report-import-form" class="modal-card acta-modal-card">
         <div class="modal-header">
@@ -432,7 +452,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
-    <script src="acta-fiche.js?v=20261021-1"></script>
-    <script src="app.js?v=20261021-1"></script>
+    <script src="acta-fiche.js?v=20261021-2"></script>
+    <script src="app.js?v=20261021-2"></script>
   </body>
 </html>
