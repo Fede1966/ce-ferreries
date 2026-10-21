@@ -3352,8 +3352,15 @@ function matchItemActaLink(item) {
     : "";
 }
 
-// Duración reglamentaria por categoría (minutos). Cadete: 80; resto (Juvenil, Regional...): 90.
-const MATCH_DURATION_BY_TEAM_KEYWORD = [["cadete", 80]];
+// Duración reglamentaria por categoría (minutos). Juvenil y Regional: 90.
+// Importante: "prebenjamin" va antes que "benjamin" porque lo contiene.
+const MATCH_DURATION_BY_TEAM_KEYWORD = [
+  ["prebenjamin", 40], // 4 cuartos de 10
+  ["benjamin", 48],    // 4 cuartos de 12
+  ["alevin", 60],      // 4 cuartos de 15
+  ["infantil", 72],    // 4 cuartos de 18
+  ["cadete", 80]
+];
 function defaultActaDuration(teamId) {
   const id = String(teamId || "").toLowerCase();
   const found = MATCH_DURATION_BY_TEAM_KEYWORD.find(([keyword]) => id.includes(keyword));
