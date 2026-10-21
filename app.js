@@ -471,6 +471,9 @@ function applyParsedActaToDialog(parsed, ownSide) {
     if (!entry) { sin.push(card.player); return; }
     const selector = card.color === "red" ? "[data-acta-red]" : "[data-acta-yellow]";
     set(entry, selector, Number(entry.row.querySelector(selector).value || 0) + 1);
+    // El expulsado deja de jugar en el minuto de la roja (si no salió antes por un cambio)
+    const exitInput = entry.row.querySelector("[data-acta-exit]");
+    if (card.color === "red" && (exitInput.value === "" || Number(exitInput.value) > card.minute)) exitInput.value = card.minute;
   });
   document.querySelector("#acta-score").value = parsed.score;
   void duration;
