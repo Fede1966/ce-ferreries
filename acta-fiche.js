@@ -180,6 +180,7 @@
     const fecha = /Fecha:\s*(\d{2}-\d{2}-\d{4})/.exec(todo);
     const hora = /Hora:\s*(\d{1,2}:\d{2})/.exec(todo);
     const jornada = /Jornada\s+(\d+)/.exec(todo);
+    const comp = /Ficha del Partido\s+(.+?)\s+Jornada\s+\d+/.exec(todo);
     const yTemporada = Math.max(0, ...palabras.filter((p) => p.t.startsWith("Temporada")).map((p) => p.y1));
     const titulares = palabras.filter((p) => p.t === "TITULARES").map((p) => p.y0);
     const yTitulares = titulares.length ? Math.min(...titulares) : yTemporada + 60;
@@ -274,6 +275,7 @@
       date: fecha ? fecha[1] : "",
       time: hora ? hora[1] : "",
       round: jornada ? Number(jornada[1]) : 0,
+      competition: comp ? comp[1].trim() : "",
       referee: arbitro,
       assistants: asistentes,
       stadium: estadio,

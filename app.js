@@ -524,19 +524,20 @@ createMatchActaInput.addEventListener("change", async () => {
   const opponent = ownSide === "home" ? parsed.away : parsed.home;
   const isoDate = parsed.date ? parsed.date.split("-").reverse().join("-") : "";
   const ownName = currentTeam().name;
+  const competitionType = /^\s*copa/i.test(parsed.competition) ? "cup" : /amistos/i.test(parsed.competition) ? "friendly" : "league";
   const duplicate = activeMatches().find((item) =>
-    (parsed.round && item.round === parsed.round && item.competition !== "friendly")
+    (parsed.round && item.round === parsed.round && (item.competition || "league") === competitionType && competitionType !== "friendly")
     || (item.date && item.date === isoDate && normalizeSearchText(ownSide === "home" ? item.away : item.home) === normalizeSearchText(opponent)));
   let matchItem = duplicate;
   if (duplicate) {
-    if (!confirm(`Ya existe un partido de la jornada ${duplicate.round} (${duplicate.home} - ${duplicate.away}). ¿Quieres cargar este acta en ese partido en vez de crear uno nuevo?`)) return;
+    if (!confirm(`Ya existe un partido de la jornada ${duplicate.round} (${duplicate.home} - ${duplicate.away}) en ${currentTeam().name}. ¿Quieres cargar este acta en ese partido en vez de crear uno nuevo?`)) return;
   } else {
     matchItem = {
       id: crypto.randomUUID(),
       updatedAt: Date.now(),
       teamId: state.activeTeamId,
-      competition: "league",
-      round: parsed.round || nextRound(),
+      competition: competitionType,
+      round: competitionType === "friendly" ? 0 : parsed.round || nextRound(),
       date: isoDate,
       time: parsed.time,
       home: ownSide === "home" ? ownName : titleCaseTeam(parsed.home),
@@ -570,7 +571,7 @@ createMatchActaInput.addEventListener("change", async () => {
   document.querySelector("#acta-file-preview").innerHTML = `<span>PDF seleccionado: ${escapeHtml(file.name)}</span>`;
   const result = applyParsedActaToDialog(parsed, ownSide);
   document.querySelector("#acta-import-status").textContent =
-    `${duplicate ? "Acta cargada en el partido existente" : `Partido creado: jornada ${matchItem.round} contra ${opponent}`}. ${describeActaResult(result)}`;
+    `${duplicate ? "Acta cargada en el partido existente" : `Partido creado (${parsed.competition || "sin competición"}, jornada ${matchItem.round}) contra ${opponent}`}. ${describeActaResult(result)}`;
 });
 
 function titleCaseTeam(name) {
