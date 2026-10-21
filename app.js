@@ -791,7 +791,7 @@ document.querySelector("#confirm-bulk-acta").addEventListener("click", async () 
         playerId,
         name: state.players.find((p) => p.id === playerId)?.name || "",
         role: r.role === "substitute" ? "substitute" : "starter",
-        changeMinute: r.role === "substitute" ? r.entry : r.exit < m.duration ? r.exit : ""
+        changeMinute: r.role === "substitute" ? r.entry : r.exit < m.duration ? r.exit : m.duration
       }));
     matchItem.teamStats = { ...normalizeTeamMatchStats(matchItem.teamStats), yellowCards, redCards };
     markMatchUpdated(matchItem);
@@ -1077,7 +1077,7 @@ matchReportImportForm.addEventListener("submit", async (event) => {
       role: record.role === "substitute" ? "substitute" : "starter",
       changeMinute: record.role === "substitute"
         ? record.entry
-        : record.exit < duration ? record.exit : ""
+        : record.exit < duration ? record.exit : duration
     }));
   matchItem.score = document.querySelector("#acta-score").value.trim();
   matchItem.teamStats = { ...normalizeTeamMatchStats(matchItem.teamStats), yellowCards, redCards };
@@ -3648,7 +3648,7 @@ function renderMatchStats(item, body) {
         playerId,
         name: state.players.find((p) => p.id === playerId)?.name || "",
         role: r.role === "substitute" ? "substitute" : "starter",
-        changeMinute: r.role === "substitute" ? r.exit : (r.exit < duration ? r.exit : "")
+        changeMinute: r.role === "substitute" ? r.exit : (r.exit < duration ? r.exit : duration)
       }));
 
     saveMatchState(item);
