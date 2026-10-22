@@ -3290,3 +3290,47 @@ button:focus-visible {
 @media (max-width: 720px) {
   .team-photo-banner img { max-height: 220px; }
 }
+
+/* Análisis dentro de Estadísticas */
+.statistics-subtabs{margin-bottom:14px}
+.analysis-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.analysis-grid .wide{grid-column:1/-1}
+.points-chart{width:100%;height:auto;color:#1a507e}
+.bar-row{display:grid;grid-template-columns:minmax(90px,1.2fr) 3fr auto;gap:8px;align-items:center;padding:4px 0;font-size:.9rem}
+.bar{background:#e9eef4;border-radius:4px;height:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1a507e}
+.compare-pickers{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.compare-pickers select{min-width:200px;padding:8px}
+.compare-table th{text-align:left}
+.compare-table td{text-align:center}
+.participation-table th,.participation-table td{white-space:nowrap}
+.part-name{text-align:left;position:sticky;left:0;background:#fff}
+.part-cell{text-align:center;font-size:.85rem;min-width:44px}
+.part-start{background:#cfe6d8;font-weight:600}
+.part-sub{background:#eaf4ee}
+.part-none{color:#b5bcc6}
+@media (max-width:760px){.analysis-metrics{grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}}
+.player-link{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:#a7bdce;text-underline-offset:3px}
+.player-link:hover{color:#1a507e;text-decoration-color:currentColor}
+
+/* Ficha del jugador: 4 cifras + minutos por partido */
+.player-stat-cards-main{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.player-two-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.minutes-bars{display:flex;align-items:flex-end;gap:10px;height:190px;padding-top:8px}
+.minutes-bar{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:24px}
+.minutes-bar-track{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.minutes-bar-track i{display:block;width:70%;max-width:46px;background:#1a507e;border-radius:4px 4px 0 0;min-height:2px}
+.minutes-bar-value{font-size:.75rem;font-weight:700;margin-bottom:4px}
+.minutes-bar-label{font-size:.75rem;color:#697888;margin-top:4px}
+.statline{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f3}
+.statline:last-child{border:0}
+.match-row-absent{color:#a0a8b3}
+@media (max-width:760px){.player-stat-cards-main{grid-template-columns:repeat(2,1fr)}.player-two-cols{grid-template-columns:1fr}}
+/* Minutos por cuartos (Infantil → Prebenjamín) */
+.mstat-hint{margin:0 0 8px;font-size:.85rem;color:var(--muted,#667)}
+.mstat-quarters{white-space:nowrap}
+.mstat-q{display:inline-flex;flex-direction:column;align-items:center;margin-right:6px;font-size:.7rem;cursor:pointer}
+.mstat-q input{width:20px;height:20px;margin:0 0 2px}
+.mstat-qmin{display:inline-block;min-width:70px;margin-left:4px;font-weight:600}
+.mstat-qmin-empty{font-weight:400;font-style:italic;color:#a66}
