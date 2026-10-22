@@ -3290,3 +3290,24 @@ button:focus-visible {
 @media (max-width: 720px) {
   .team-photo-banner img { max-height: 220px; }
 }
+
+/* Análisis dentro de Estadísticas */
+.statistics-subtabs{margin-bottom:14px}
+.analysis-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.analysis-grid .wide{grid-column:1/-1}
+.points-chart{width:100%;height:auto;color:#1a507e}
+.bar-row{display:grid;grid-template-columns:minmax(90px,1.2fr) 3fr auto;gap:8px;align-items:center;padding:4px 0;font-size:.9rem}
+.bar{background:#e9eef4;border-radius:4px;height:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1a507e}
+.compare-pickers{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.compare-pickers select{min-width:200px;padding:8px}
+.compare-table th{text-align:left}
+.compare-table td{text-align:center}
+.participation-table th,.participation-table td{white-space:nowrap}
+.part-name{text-align:left;position:sticky;left:0;background:#fff}
+.part-cell{text-align:center;font-size:.85rem;min-width:44px}
+.part-start{background:#cfe6d8;font-weight:600}
+.part-sub{background:#eaf4ee}
+.part-none{color:#b5bcc6}
+@media (max-width:760px){.analysis-metrics{grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}}

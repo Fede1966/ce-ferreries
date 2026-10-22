@@ -72,6 +72,9 @@ async function getValidAccessToken() {
   return authSession?.access_token || getSupabaseAnonKey();
 }
 
+let statisticsTab = "summary";
+let compareIds = [];
+
 function canEdit() {
   if (!authSession?.access_token) return false;
   const email = authSession.user?.email?.toLocaleLowerCase("es") || "";
@@ -2723,7 +2726,7 @@ function applyAccessMode() {
   });
   document.querySelectorAll(".main-content button").forEach((button) => {
     const navigationOnly = button.matches(
-      "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], #back-to-matches"
+      "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], [data-statistics-tab], #back-to-matches"
     );
     if (!navigationOnly) button.disabled = !editable;
   });
@@ -3773,7 +3776,151 @@ function renderStandings() {
   `;
 }
 
+// ---- Análisis: Resumen, Comparar jugadores y Participación (dentro de Estadísticas) ----
+function statisticsTabsHtml() {
+  const tab = (id, label) => `<button class="detail-tab ${statisticsTab === id ? "active" : ""}" data-statistics-tab="${id}" type="button">${label}</button>`;
+  return `<div class="detail-tabs statistics-subtabs">${tab("summary", "Resumen")}${tab("players", "Jugadores")}${tab("compare", "Comparar")}${tab("participation", "Participación")}</div>`;
+}
+
+function bindStatisticsTabs() {
+  views.statistics.querySelectorAll("[data-statistics-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      statisticsTab = button.dataset.statisticsTab;
+      renderStatistics();
+      applyAccessMode();
+    });
+  });
+}
+
+function ownResult(item) {
+  const away = ownTeamSide(item) === "away";
+  const own = away ? item.awayGoals : item.homeGoals;
+  const other = away ? item.homeGoals : item.awayGoals;
+  return { own, other, points: own > other ? 3 : own === other ? 1 : 0, letter: own > other ? "G" : own === other ? "E" : "P" };
+}
+
+function minutesInMatch(playerItem, matchItem) {
+  if (!playerParticipatedInMatch(playerItem, matchItem)) return null;
+  return playerReport(playerItem, matchItem.id).minutes || 0;
+}
+
+function sortedPlayedMatches() {
+  return parsedMatches().slice().sort((a, b) => (a.round - b.round) || String(a.date).localeCompare(String(b.date)));
+}
+
+function renderSummaryTab() {
+  const matches = sortedPlayedMatches();
+  const stats = calculateTeamStats(matches);
+  const rows = buildPlayerStatistics();
+  let acc = 0;
+  const series = matches.map((m) => (acc += ownResult(m).points));
+  const W = 560, H = 160, P = 24;
+  const max = Math.max(3, ...series);
+  const pts = series.map((v, i) => [P + (series.length > 1 ? (i * (W - 2 * P)) / (series.length - 1) : (W - 2 * P) / 2), H - P - (v / max) * (H - 2 * P)]);
+  const chart = series.length
+    ? `<svg viewBox="0 0 ${W} ${H}" class="points-chart" role="img" aria-label="Evolución de puntos">
+        <polyline fill="none" stroke="currentColor" stroke-width="2.5" points="${pts.map((p) => p.join(",")).join(" ")}"/>
+        ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="currentColor"/><text x="${p[0]}" y="${H - 6}" text-anchor="middle" font-size="10">J${matches[i].round}</text><text x="${p[0]}" y="${p[1] - 8}" text-anchor="middle" font-size="10">${series[i]}</text>`).join("")}
+      </svg>`
+    : `<div class="empty-state">Aún no hay partidos jugados.</div>`;
+  const topMinutes = rows.slice().sort((a, b) => b.minutes - a.minutes).filter((r) => r.minutes > 0).slice(0, 6);
+  const maxMin = topMinutes[0]?.minutes || 1;
+  const last = matches[matches.length - 1];
+  const form = matches.slice(-5).map((m) => { const r = ownResult(m); return `<span class="result ${r.letter === "E" ? "draw" : r.letter === "P" ? "loss" : ""}">${r.letter}</span>`; }).join("");
+  return `
+    <div class="club-statistics-page analysis-page">
+      <div class="analysis-metrics">
+        ${renderMetric("Puntos", stats.points)}
+        ${renderMetric("Jugados", stats.played)}
+        ${renderMetric("G · E · P", `${stats.won} · ${stats.drawn} · ${stats.lost}`)}
+        ${renderMetric("Goles", `${stats.goalsFor} – ${stats.goalsAgainst}`)}
+      </div>
+      <div class="analysis-grid">
+        <section class="panel"><h3>Evolución de puntos</h3>${chart}${form ? `<p class="meta">Últimos partidos: ${form}</p>` : ""}</section>
+        <section class="panel"><h3>Más minutos</h3>
+          ${topMinutes.length ? topMinutes.map((r) => `<div class="bar-row"><span>${escapeHtml(r.name)}</span><div class="bar"><i style="width:${Math.round((r.minutes / maxMin) * 100)}%"></i></div><b>${r.minutes}'</b></div>`).join("") : `<div class="empty-state">Sin minutos registrados.</div>`}
+        </section>
+        <section class="panel wide"><h3>Último partido</h3>
+          ${last ? `<p><strong>${escapeHtml(last.home)} ${last.homeGoals} – ${last.awayGoals} ${escapeHtml(last.away)}</strong></p><p class="meta">Jornada ${last.round}${last.date ? " · " + formatDate(last.date) : ""}</p>` : `<div class="empty-state">Todavía no hay partidos jugados.</div>`}
+        </section>
+      </div>
+    </div>`;
+}
+
+function renderCompareTab() {
+  const rows = buildPlayerStatistics().slice().sort((a, b) => a.name.localeCompare(b.name, "es"));
+  compareIds = compareIds.filter((id) => rows.some((r) => r.id === id)).slice(0, 3);
+  const picker = [0, 1, 2].map((i) => `
+    <select data-compare-slot="${i}" aria-label="Jugador ${i + 1}">
+      <option value="">${i < 2 ? "Elegir jugador" : "Tercer jugador (opcional)"}</option>
+      ${rows.map((r) => `<option value="${escapeAttr(r.id)}" ${compareIds[i] === r.id ? "selected" : ""}>${escapeHtml(r.name)}</option>`).join("")}
+    </select>`).join("");
+  const chosen = compareIds.map((id) => rows.find((r) => r.id === id)).filter(Boolean);
+  const per = (r, v) => (r.played ? (v / r.played).toFixed(1).replace(".", ",") : "0");
+  const lines = [
+    ["Posición", (r) => r.position],
+    ["Partidos jugados", (r) => r.played],
+    ["Titular", (r) => r.starts],
+    ["Minutos", (r) => r.minutes],
+    ["Minutos por partido", (r) => per(r, r.minutes)],
+    ["Goles", (r) => r.goals],
+    ["Asistencias", (r) => r.assists],
+    ["Amarillas", (r) => r.yellowCards],
+    ["Rojas", (r) => r.redCards]
+  ];
+  return `
+    <div class="club-statistics-page analysis-page">
+      <div class="compare-pickers">${picker}</div>
+      ${chosen.length >= 2 ? `
+        <div class="table-panel"><div class="data-table-scroll"><table class="data-table compare-table">
+          <thead><tr><th></th>${chosen.map((r) => `<th>${r.number ? `#${r.number} ` : ""}${escapeHtml(r.name)}</th>`).join("")}</tr></thead>
+          <tbody>${lines.map(([label, fn]) => `<tr><th>${label}</th>${chosen.map((r) => `<td>${escapeHtml(String(fn(r)))}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table></div></div>` : `<div class="empty-state">Elige al menos dos jugadores para compararlos.</div>`}
+    </div>`;
+}
+
+function renderParticipationTab() {
+  const matches = sortedPlayedMatches();
+  const players = activePlayers().slice().sort((a, b) => (a.number || 999) - (b.number || 999) || a.name.localeCompare(b.name, "es"));
+  if (!matches.length || !players.length) return `<div class="club-statistics-page analysis-page"><div class="empty-state">Aún no hay partidos jugados.</div></div>`;
+  const quarter = isQuarterTeam(state.activeTeamId);
+  const cell = (p, m) => {
+    const mins = minutesInMatch(p, m);
+    if (mins === null) return `<td class="part-cell part-none">·</td>`;
+    const started = playerStartedMatch(p, m);
+    const label = mins > 0 ? `${mins}'` : (quarter ? "?" : "0'");
+    return `<td class="part-cell ${started ? "part-start" : "part-sub"}" title="${started ? "Titular" : "Suplente"}">${label}</td>`;
+  };
+  return `
+    <div class="club-statistics-page analysis-page">
+      <p class="meta">Quién jugó cada jornada. Verde oscuro = titular, claro = suplente, · = no jugó${quarter ? ", ? = sin anotar" : ""}.</p>
+      <div class="table-panel"><div class="data-table-scroll"><table class="data-table participation-table">
+        <thead><tr><th>Jugador</th>${matches.map((m) => `<th title="${escapeAttr(m.home + " " + m.homeGoals + "-" + m.awayGoals + " " + m.away)}">J${m.round}</th>`).join("")}<th>Total</th></tr></thead>
+        <tbody>${players.map((p) => `<tr><th class="part-name">${p.number ? `<span class="mstat-dorsal">${escapeHtml(String(p.number))}</span>` : ""}${escapeHtml(p.name)}</th>${matches.map((m) => cell(p, m)).join("")}<td><strong>${matches.filter((m) => minutesInMatch(p, m) !== null).length}</strong></td></tr>`).join("")}</tbody>
+      </table></div></div>
+    </div>`;
+}
+
 function renderStatistics() {
+  if (statisticsTab !== "players") {
+    const body = statisticsTab === "compare" ? renderCompareTab() : statisticsTab === "participation" ? renderParticipationTab() : renderSummaryTab();
+    views.statistics.innerHTML = statisticsTabsHtml() + body;
+    bindStatisticsTabs();
+    views.statistics.querySelectorAll("[data-compare-slot]").forEach((select) => {
+      select.addEventListener("change", () => {
+        compareIds = [...new Set([...views.statistics.querySelectorAll("[data-compare-slot]")].map((s) => s.value).filter(Boolean))];
+        renderStatistics();
+        applyAccessMode();
+      });
+    });
+    return;
+  }
+  renderPlayersStatistics();
+  views.statistics.insertAdjacentHTML("afterbegin", statisticsTabsHtml());
+  bindStatisticsTabs();
+}
+
+function renderPlayersStatistics() {
   const matches = parsedMatches();
   const teamStats = calculateTeamStats(matches);
   const extraStats = calculateTeamMatchStats();
