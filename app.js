@@ -3481,7 +3481,7 @@ function renderMatchDetail() {
   }
   state.selectedMatchId = item.id;
 
-  const detailTab = !canEdit() && state.activeDetailTab === "plan" ? "lineup" : state.activeDetailTab;
+  const detailTab = !canEdit() && ["plan", "information", "video"].includes(state.activeDetailTab) ? "lineup" : state.activeDetailTab;
   views.detail.innerHTML = `
     <div class="detail-header">
       <div class="detail-title">
@@ -3499,8 +3499,8 @@ function renderMatchDetail() {
     <div class="detail-tabs">
       ${canEdit() ? `<button class="detail-tab ${detailTab === "plan" ? "active" : ""}" data-detail-tab="plan" type="button">Plan de partido</button>` : ""}
       <button class="detail-tab ${detailTab === "lineup" ? "active" : ""}" data-detail-tab="lineup" type="button">Alineación</button>
-      <button class="detail-tab ${detailTab === "information" ? "active" : ""}" data-detail-tab="information" type="button">Información del partido</button>
-      <button class="detail-tab ${detailTab === "video" ? "active" : ""}" data-detail-tab="video" type="button">Vídeo</button>
+      ${canEdit() ? `<button class="detail-tab ${detailTab === "information" ? "active" : ""}" data-detail-tab="information" type="button">Información del partido</button>
+      <button class="detail-tab ${detailTab === "video" ? "active" : ""}" data-detail-tab="video" type="button">Vídeo</button>` : ""}
       <button class="detail-tab ${detailTab === "stats" ? "active" : ""}" data-detail-tab="stats" type="button">Estadísticas</button>
     </div>
     <div id="detail-body"></div>
@@ -3519,8 +3519,8 @@ function renderMatchDetail() {
 
   const body = views.detail.querySelector("#detail-body");
   if (detailTab === "plan" && canEdit()) renderPlan(item, body);
-  else if (detailTab === "information") renderMatchInformation(item, body);
-  else if (detailTab === "video") renderMatchVideo(item, body);
+  else if (detailTab === "information" && canEdit()) renderMatchInformation(item, body);
+  else if (detailTab === "video" && canEdit()) renderMatchVideo(item, body);
   else if (detailTab === "stats") renderMatchStats(item, body);
   else renderLineupEditor(item, body);
 }
