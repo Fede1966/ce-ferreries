@@ -605,7 +605,7 @@ function actaDisplayName(actaName) {
 }
 
 // Registro por jugador de nuestro lado, calculado solo con lo que dice el acta
-function computeOwnActaRecords(parsed, ownSide, duration) {
+function computeOwnActaRecords(parsed, ownSide, duration, quarterMode = false) {
   const lineup = parsed.lineups[ownSide];
   const rec = new Map();
   const blank = () => ({ role: "none", entry: 0, exit: 0, goals: 0, yellowCards: 0, redCards: 0 });
@@ -629,6 +629,15 @@ function computeOwnActaRecords(parsed, ownSide, duration) {
       if (r.role !== "none" && r.exit > card.minute) r.exit = card.minute;
     } else r.yellowCards = Math.min(2, r.yellowCards + 1);
   });
+  if (quarterMode) {
+    // El acta no da minutos por cuartos: se dejan sin anotar. Un suplente con gol sí jugó.
+    rec.forEach((r) => {
+      if (r.role === "none" && r.goals > 0) r.role = "substitute";
+      r.entry = 0;
+      r.exit = 0;
+      r.quarters = [0, 0, 0, 0];
+    });
+  }
   return rec;
 }
 
@@ -691,7 +700,7 @@ function buildBulkPlan(items) {
       const existing = activeMatches().find((m) =>
         ((m.competition || "league") === competition && competition !== "friendly" && m.round === parsed.round)
         || (m.date && m.date === isoDate && normalizeSearchText(ownSide === "home" ? m.away : m.home) === normalizeSearchText(opponent)));
-      const records = computeOwnActaRecords(parsed, ownSide, duration);
+      const records = computeOwnActaRecords(parsed, ownSide, duration, isQuarterTeam(state.activeTeamId));
       const players = [...records.entries()].map(([actaName, record]) => ({ actaName, record, entry: resolve(actaName, record.num) }));
       plan.matches.push({ file: item.file, parsed, ownSide, competition, isoDate, opponent, existing, players, duration });
     });
@@ -767,6 +776,7 @@ document.querySelector("#confirm-bulk-acta").addEventListener("click", async () 
     if (uploaded) Object.assign(matchItem, { actaFileUrl: uploaded.url, actaFilePath: uploaded.path, actaFileName: m.file.name, actaFileType: m.file.type });
     else uploadFailures++;
     const records = {};
+    const quarterTeam = isQuarterTeam(state.activeTeamId);
     let yellowCards = 0;
     let redCards = 0;
     m.players.forEach(({ record, entry }) => {
@@ -785,6 +795,15 @@ document.querySelector("#confirm-bulk-acta").addEventListener("click", async () 
         role: record.role, entry: played ? record.entry : 0, exit: played ? record.exit : 0,
         goals: report.goals, yellowCards: report.yellowCards, redCards: report.redCards
       };
+      if (quarterTeam) {
+        // Conserva los cuartos que ya haya anotado el entrenador; si no, quedan sin anotar
+        const previous = matchItem.actaPlayers?.[playerItem.id];
+        const kept = previous && normalizeQuarters(previous.quarters).some(Boolean) ? normalizeQuarters(previous.quarters) : [0, 0, 0, 0];
+        records[playerItem.id].quarters = kept;
+        records[playerItem.id].exit = played ? quartersMinutes(kept, m.duration) : 0;
+        if (kept.some(Boolean) && !played) records[playerItem.id].role = "substitute";
+        report.minutes = records[playerItem.id].exit;
+      }
     });
     matchItem.actaPlayers = records;
     matchItem.lineupSheets = normalizeLineupSheets(matchItem.lineupSheets, matchItem);
@@ -794,7 +813,7 @@ document.querySelector("#confirm-bulk-acta").addEventListener("click", async () 
         playerId,
         name: state.players.find((p) => p.id === playerId)?.name || "",
         role: r.role === "substitute" ? "substitute" : "starter",
-        changeMinute: r.role === "substitute" ? r.entry : r.exit < m.duration ? r.exit : m.duration
+        changeMinute: quarterTeam ? "" : r.role === "substitute" ? r.entry : r.exit < m.duration ? r.exit : m.duration
       }));
     matchItem.teamStats = { ...normalizeTeamMatchStats(matchItem.teamStats), yellowCards, redCards };
     markMatchUpdated(matchItem);
@@ -3006,6 +3025,15 @@ function renderPlayerStatistics(item, body) {
     return mins > 0 ? `${mins}'` : (quarter ? "s/a" : "0'");
   };
 
+  const gk = goalkeeperTotals(item);
+  const gkCards = item.position === "Portero"
+    ? renderPlayerStatCard("Goles encajados", gk.goalsConceded, "GE", [
+        `${formatPerMatch(gk.goalsConceded, gk.matches)} por partido`,
+        `${gk.cleanSheets} porterías a cero`,
+        ...(gk.pending ? [`${gk.pending} partido(s) pendientes de repartir`] : [])
+      ])
+    : "";
+
   body.innerHTML = `
     <section class="player-tab-page player-statistics-page">
       <div class="player-statistics-toolbar">
@@ -3018,6 +3046,7 @@ function renderPlayerStatistics(item, body) {
         ${renderPlayerStatCard("Titularidades", starts, "TI", [`${appearances.length} de ${played.length} partidos`])}
         ${renderPlayerStatCard("Minutos", totals.minutes, "MI", [`${per(totals.minutes)} por partido`])}
         ${renderPlayerStatCard("Goles", totals.goals, "GO", [`${per(totals.goals)} por partido`])}
+        ${gkCards}
         ${renderPlayerStatCard("Tarjetas", totals.yellowCards + totals.redCards, "TA", [`${totals.yellowCards} amarillas`, `${totals.redCards} rojas`])}
       </div>
       <div class="player-two-cols">
@@ -3530,6 +3559,8 @@ function renderMatchStats(item, body) {
   }
 
   const duration = resolveActaDuration(item.actaDuration, item.teamId, item.actaPlayers);
+  const quarterMode = isQuarterTeam(item.teamId);
+  const quarterLength = duration / 4;
 
   const playerData = players.map((playerItem) => {
     const acta = item.actaPlayers?.[playerItem.id];
@@ -3543,7 +3574,8 @@ function renderMatchStats(item, body) {
     return {
       playerItem,
       role,
-      minutes,
+      minutes: quarterMode ? quartersMinutes(acta?.quarters, duration) : minutes,
+      quarters: normalizeQuarters(acta?.quarters),
       goals: acta?.goals != null ? Number(acta.goals) : report.goals,
       assists: report.assists,
       yellowCards: acta?.yellowCards != null ? Number(acta.yellowCards) : report.yellowCards,
@@ -3562,8 +3594,28 @@ function renderMatchStats(item, body) {
 
   const numCell = (d, stat, val, max, extraCls = "") => `<input class="mstat-input ${extraCls}" type="number" min="0"${max != null ? ` max="${max}"` : ""} data-pid="${pid(d)}" data-stat="${stat}" value="${val}" />`;
 
+  const concededCell = (d) => {
+    if (d.playerItem.position !== "Portero") return `<td class="mstat-cell mstat-muted">—</td>`;
+    const manual = playerReport(d.playerItem, item.id).goalsConceded;
+    const keepers = players.filter((p) => p.position === "Portero" && (item.actaPlayers?.[p.id]?.role || "none") !== "none");
+    const score = parseScore(item.score);
+    const against = score ? (ownTeamSide(item) === "away" ? score.home : score.away) : "";
+    const auto = keepers.length <= 1 && against !== "" ? against : "";
+    const hint = keepers.length > 1 ? "reparte tú" : (auto !== "" ? `auto: ${auto}` : "");
+    return `<td class="mstat-cell"><input class="mstat-input" type="number" min="0" data-pid="${pid(d)}" data-stat="goalsConceded" value="${manual ?? ""}" placeholder="${escapeAttr(String(hint))}" /></td>`;
+  };
+
+  const minutesCell = (d) => {
+    if (!quarterMode) return `<td class="mstat-cell">${numCell(d, "minutes", d.minutes, duration)}</td>`;
+    const annotated = d.quarters.some(Boolean);
+    const boxes = d.quarters.map((on, i) => `<label class="mstat-q"><input type="checkbox" data-pid="${pid(d)}" data-stat="q${i}" ${on ? "checked" : ""} /><span>${i + 1}</span></label>`).join("");
+    const label = annotated ? `${d.minutes} min` : (d.role !== "none" ? "sin anotar" : "—");
+    return `<td class="mstat-cell mstat-quarters">${boxes}<span class="mstat-qmin ${annotated ? "" : "mstat-qmin-empty"}" data-qmin="${pid(d)}">${label}</span></td>`;
+  };
+
   body.innerHTML = `
     <div class="mstat-wrap">
+      ${quarterMode ? `<p class="mstat-hint">Marca los cuartos que jugó cada jugador (cuarto de ${quarterLength} min). La app calcula los minutos.</p>` : ""}
       <div class="mstat-toolbar">
         <button class="primary-button" id="mstat-save" type="button">Guardar estadísticas</button>
         <span class="mstat-status" id="mstat-status"></span>
@@ -3574,8 +3626,9 @@ function renderMatchStats(item, body) {
             <tr>
               <th class="mstat-col-player">Jugador</th>
               <th class="mstat-col-stat">Titular</th>
-              <th class="mstat-col-stat">Minutos</th>
+              <th class="mstat-col-stat">${quarterMode ? "Cuartos jugados" : "Minutos"}</th>
               <th class="mstat-col-stat">Goles</th>
+              <th class="mstat-col-stat" title="Solo porteros. Vacío = automático si solo jugó un portero">Encajados</th>
               <th class="mstat-col-stat">Asistencias</th>
               <th class="mstat-col-stat mstat-col-card">TA</th>
               <th class="mstat-col-stat mstat-col-card">TR</th>
@@ -3589,8 +3642,9 @@ function renderMatchStats(item, body) {
                   <span class="mstat-fullname">${escapeHtml(d.playerItem.name)}</span>
                 </td>
                 <td class="mstat-cell">${roleCell(d)}</td>
-                <td class="mstat-cell">${numCell(d, "minutes", d.minutes, duration)}</td>
+                ${minutesCell(d)}
                 <td class="mstat-cell">${numCell(d, "goals", d.goals, null)}</td>
+                ${concededCell(d)}
                 <td class="mstat-cell">${numCell(d, "assists", d.assists, null)}</td>
                 <td class="mstat-cell">${numCell(d, "yellowCards", d.yellowCards, 2, "mstat-input-yellow")}</td>
                 <td class="mstat-cell">${numCell(d, "redCards", d.redCards, 1, "mstat-input-red")}</td>
@@ -3601,6 +3655,23 @@ function renderMatchStats(item, body) {
       </div>
     </div>
   `;
+
+  if (quarterMode) {
+    body.querySelectorAll('input[type="checkbox"][data-stat^="q"]').forEach((box) => {
+      box.addEventListener("change", () => {
+        const id = box.dataset.pid;
+        const q = [0, 1, 2, 3].map((i) => (body.querySelector(`[data-stat="q${i}"][data-pid="${CSS.escape(id)}"]`)?.checked ? 1 : 0));
+        const total = quartersMinutes(q, duration);
+        const label = body.querySelector(`[data-qmin="${CSS.escape(id)}"]`);
+        const roleSel = body.querySelector(`[data-stat="role"][data-pid="${CSS.escape(id)}"]`);
+        if (total > 0 && roleSel && roleSel.value === "none") roleSel.value = q[0] ? "starter" : "substitute";
+        if (label) {
+          label.textContent = total > 0 ? `${total} min` : (roleSel && roleSel.value !== "none" ? "sin anotar" : "—");
+          label.classList.toggle("mstat-qmin-empty", total === 0);
+        }
+      });
+    });
+  }
 
   body.querySelector("#mstat-save").addEventListener("click", () => {
     const records = {};
@@ -3613,7 +3684,8 @@ function renderMatchStats(item, body) {
         return el ? el.value : "0";
       };
       const role = get("role") || "none";
-      const minutes = clamp(nonNegativeInteger(get("minutes")), 0, duration);
+      const quarters = [0, 1, 2, 3].map((i) => (body.querySelector(`[data-stat="q${i}"][data-pid="${CSS.escape(playerItem.id)}"]`)?.checked ? 1 : 0));
+      const minutes = quarterMode ? quartersMinutes(quarters, duration) : clamp(nonNegativeInteger(get("minutes")), 0, duration);
       const goals = nonNegativeInteger(get("goals"));
       const assists = nonNegativeInteger(get("assists"));
       const yellows = normalizeCardCount(get("yellowCards"), 2);
@@ -3624,10 +3696,12 @@ function renderMatchStats(item, body) {
       report.minutes = role === "none" ? 0 : minutes;
       report.goals = goals;
       report.assists = assists;
+      if (playerItem.position === "Portero") report.goalsConceded = normalizeGoalsConceded(get("goalsConceded"));
       report.yellowCards = yellows;
       report.redCards = reds;
 
       records[playerItem.id] = { role, entry: 0, exit, goals, yellowCards: yellows, redCards: reds };
+      if (quarterMode) records[playerItem.id].quarters = quarters;
       totalYellows += yellows;
       totalReds += reds;
     });
@@ -3644,7 +3718,7 @@ function renderMatchStats(item, body) {
         playerId,
         name: state.players.find((p) => p.id === playerId)?.name || "",
         role: r.role === "substitute" ? "substitute" : "starter",
-        changeMinute: r.role === "substitute" ? r.exit : (r.exit < duration ? r.exit : duration)
+        changeMinute: quarterMode ? "" : r.role === "substitute" ? r.exit : (r.exit < duration ? r.exit : duration)
       }));
 
     saveMatchState(item);
@@ -3667,6 +3741,27 @@ const MATCH_DURATION_BY_TEAM_KEYWORD = [
   ["infantil", 72],    // 4 cuartos de 18
   ["cadete", 80]
 ];
+// Infantil, Alevín, Benjamín y Prebenjamín juegan por cuartos y los cambios son solo entre cuartos:
+// el acta no dice quién jugó cada cuarto, lo anota el entrenador (C1..C4) y la app lo convierte en minutos.
+function isQuarterTeam(teamId) {
+  const id = String(teamId || "").toLowerCase();
+  return ["infantil", "alevin", "benjamin"].some((keyword) => id.includes(keyword));
+}
+function normalizeQuarters(value) {
+  const list = Array.isArray(value) ? value : [];
+  return [0, 1, 2, 3].map((index) => (list[index] ? 1 : 0));
+}
+function quartersMinutes(quarters, duration) {
+  return normalizeQuarters(quarters).reduce((sum, played) => sum + played, 0) * (duration / 4);
+}
+
+function minutesLabel(match, report) {
+  if (isQuarterTeam(match.teamId) && !report.minutes) {
+    return "minutos sin anotar";
+  }
+  return `${report.minutes} minutos`;
+}
+
 function defaultActaDuration(teamId) {
   const id = String(teamId || "").toLowerCase();
   const found = MATCH_DURATION_BY_TEAM_KEYWORD.find(([keyword]) => id.includes(keyword));
@@ -3999,6 +4094,7 @@ function renderPlayersStatistics() {
                   <th>Jugados</th>
                   <th>Minutos</th>
                   <th>Goles</th>
+                  <th>Encajados</th>
                   <th>Asistencias de gol</th>
                   <th>Tiros a puerta</th>
                   <th>Pases de gol</th>
@@ -4101,6 +4197,7 @@ function renderPlayerStatisticsRow(item) {
       <td>${item.played}</td>
       <td>${item.minutes}</td>
       <td>${item.goals}</td>
+      <td>${item.position === "Portero" ? `${item.gk.goalsConceded}${item.gk.pending ? ` <small title="Partidos pendientes de repartir">(+${item.gk.pending}?)</small>` : ""}` : "—"}</td>
       <td>${item.assists}</td>
       <td>${item.shotsOnTarget}</td>
       <td>${item.goalPasses}</td>
@@ -4749,7 +4846,8 @@ function normalizePlayerReports(reports) {
           goals: nonNegativeInteger(value?.goals),
           assists: nonNegativeInteger(value?.assists),
           shotsOnTarget: nonNegativeInteger(value?.shotsOnTarget),
-          goalPasses: nonNegativeInteger(value?.goalPasses)
+          goalPasses: nonNegativeInteger(value?.goalPasses),
+          goalsConceded: normalizeGoalsConceded(value?.goalsConceded)
         }
       ];
     })
@@ -4771,7 +4869,8 @@ function emptyPlayerReport() {
     goals: 0,
     assists: 0,
     shotsOnTarget: 0,
-    goalPasses: 0
+    goalPasses: 0,
+    goalsConceded: null
   };
 }
 
@@ -4843,8 +4942,42 @@ function playerReport(item, matchId) {
     goals: nonNegativeInteger(value?.goals),
     assists: nonNegativeInteger(value?.assists),
     shotsOnTarget: nonNegativeInteger(value?.shotsOnTarget),
-    goalPasses: nonNegativeInteger(value?.goalPasses)
+    goalPasses: nonNegativeInteger(value?.goalPasses),
+    goalsConceded: normalizeGoalsConceded(value?.goalsConceded)
   };
+}
+
+function normalizeGoalsConceded(value) {
+  return value == null || value === "" ? null : nonNegativeInteger(value);
+}
+
+// Goles encajados por portero en un partido.
+// Manual (lo pone el entrenador) si existe; si no, automático cuando solo jugó un portero.
+// Si jugaron dos o más porteros y nadie lo ha repartido, queda pendiente (value null).
+function goalsConcededInMatch(playerItem, matchItem) {
+  if (playerItem.position !== "Portero" || !playerParticipatedInMatch(playerItem, matchItem)) return null;
+  const manual = playerReport(playerItem, matchItem.id).goalsConceded;
+  if (manual != null) return { value: manual, manual: true };
+  const score = parseScore(matchItem.score);
+  if (!score) return { value: null, pending: true };
+  const against = ownTeamSide(matchItem) === "away" ? score.home : score.away;
+  const keepers = activePlayers().filter((p) => p.position === "Portero" && playerParticipatedInMatch(p, matchItem));
+  if (keepers.length === 1) return { value: against, manual: false };
+  return { value: null, pending: true, against };
+}
+
+function goalkeeperTotals(playerItem) {
+  const totals = { goalsConceded: 0, cleanSheets: 0, matches: 0, pending: 0 };
+  if (playerItem.position !== "Portero") return totals;
+  activeMatches().forEach((matchItem) => {
+    const info = goalsConcededInMatch(playerItem, matchItem);
+    if (!info) return;
+    if (info.value == null) { totals.pending += 1; return; }
+    totals.matches += 1;
+    totals.goalsConceded += info.value;
+    if (info.value === 0) totals.cleanSheets += 1;
+  });
+  return totals;
 }
 
 function ensurePlayerReport(item, matchId) {
@@ -5019,7 +5152,7 @@ async function downloadPlayerPdf(item) {
                   ({ match, report }) => `
                     <article class="report">
                       <h3>Jornada ${match.round}: ${escapeHtml(match.home)} vs ${escapeHtml(match.away)}</h3>
-                      <div class="meta">${match.date ? formatDate(match.date) : "Fecha pendiente"} · ${report.minutes} minutos · Valoración ${report.rating ? `${report.rating} / 10` : "Sin valorar"}</div>
+                      <div class="meta">${match.date ? formatDate(match.date) : "Fecha pendiente"} · ${minutesLabel(match, report)} · Valoración ${report.rating ? `${report.rating} / 10` : "Sin valorar"}</div>
                       <div class="report-stats">
                         ${renderPdfReportStat("Pases correctos", report.completedPasses)}
                         ${renderPdfReportStat("Pases fallados", report.failedPasses)}
@@ -5217,6 +5350,7 @@ function buildPlayerStatistics() {
         played,
         participation: totalMatches ? Math.round((appearances.length / totalMatches) * 100) : 0,
         ...totals,
+        gk: goalkeeperTotals(item),
         reports: Object.keys(item.reports || {}).filter((matchId) => {
           if (!matchIds.has(matchId)) return false;
           const report = playerReport(item, matchId);

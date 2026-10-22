@@ -3327,3 +3327,10 @@ button:focus-visible {
 .statline:last-child{border:0}
 .match-row-absent{color:#a0a8b3}
 @media (max-width:760px){.player-stat-cards-main{grid-template-columns:repeat(2,1fr)}.player-two-cols{grid-template-columns:1fr}}
+/* Minutos por cuartos (Infantil → Prebenjamín) */
+.mstat-hint{margin:0 0 8px;font-size:.85rem;color:var(--muted,#667)}
+.mstat-quarters{white-space:nowrap}
+.mstat-q{display:inline-flex;flex-direction:column;align-items:center;margin-right:6px;font-size:.7rem;cursor:pointer}
+.mstat-q input{width:20px;height:20px;margin:0 0 2px}
+.mstat-qmin{display:inline-block;min-width:70px;margin-left:4px;font-weight:600}
+.mstat-qmin-empty{font-weight:400;font-style:italic;color:#a66}
