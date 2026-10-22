@@ -3311,3 +3311,5 @@ button:focus-visible {
 .part-sub{background:#eaf4ee}
 .part-none{color:#b5bcc6}
 @media (max-width:760px){.analysis-metrics{grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}}
+.player-link{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:#a7bdce;text-underline-offset:3px}
+.player-link:hover{color:#1a507e;text-decoration-color:currentColor}

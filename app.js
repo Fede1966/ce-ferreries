@@ -3782,7 +3782,18 @@ function statisticsTabsHtml() {
   return `<div class="detail-tabs statistics-subtabs">${tab("summary", "Resumen")}${tab("players", "Jugadores")}${tab("compare", "Comparar")}${tab("participation", "Participación")}</div>`;
 }
 
+function bindPlayerLinks(container) {
+  container.querySelectorAll("[data-open-player]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedPlayerId = button.dataset.openPlayer;
+      state.activePlayerTab = "statistics";
+      setView("playerDetail");
+    });
+  });
+}
+
 function bindStatisticsTabs() {
+  bindPlayerLinks(views.statistics);
   views.statistics.querySelectorAll("[data-statistics-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       statisticsTab = button.dataset.statisticsTab;
@@ -3896,7 +3907,7 @@ function renderParticipationTab() {
       <p class="meta">Quién jugó cada jornada. Verde oscuro = titular, claro = suplente, · = no jugó${quarter ? ", ? = sin anotar" : ""}.</p>
       <div class="table-panel"><div class="data-table-scroll"><table class="data-table participation-table">
         <thead><tr><th>Jugador</th>${matches.map((m) => `<th title="${escapeAttr(m.home + " " + m.homeGoals + "-" + m.awayGoals + " " + m.away)}">J${m.round}</th>`).join("")}<th>Total</th></tr></thead>
-        <tbody>${players.map((p) => `<tr><th class="part-name">${p.number ? `<span class="mstat-dorsal">${escapeHtml(String(p.number))}</span>` : ""}${escapeHtml(p.name)}</th>${matches.map((m) => cell(p, m)).join("")}<td><strong>${matches.filter((m) => minutesInMatch(p, m) !== null).length}</strong></td></tr>`).join("")}</tbody>
+        <tbody>${players.map((p) => `<tr><th class="part-name">${p.number ? `<span class="mstat-dorsal">${escapeHtml(String(p.number))}</span>` : ""}<button class="player-link" type="button" data-open-player="${escapeAttr(p.id)}" title="Abrir ficha">${escapeHtml(p.name)}</button></th>${matches.map((m) => cell(p, m)).join("")}<td><strong>${matches.filter((m) => minutesInMatch(p, m) !== null).length}</strong></td></tr>`).join("")}</tbody>
       </table></div></div>
     </div>`;
 }
@@ -4091,7 +4102,7 @@ function renderPlayerStatisticsRow(item) {
     <tr>
       <td class="statistics-player-cell">
         <div class="statistics-player-photo" ${photoStyle}>${item.photo ? "" : initials(item.name)}</div>
-        <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.position)}</span></div>
+        <div><button class="player-link" type="button" data-open-player="${escapeAttr(item.id)}" title="Abrir ficha"><strong>${escapeHtml(item.name)}</strong></button><span>${escapeHtml(item.position)}</span></div>
       </td>
       <td>${item.starts}</td>
       <td>${item.played}</td>
