@@ -72,8 +72,12 @@ async function getValidAccessToken() {
   return authSession?.access_token || getSupabaseAnonKey();
 }
 
+<<<<<<< HEAD
 let statisticsTab = "summary";
 let compareIds = [];
+=======
+let matchesTab = "matches";
+>>>>>>> feat/clasificacion-en-partidos
 
 function canEdit() {
   if (!authSession?.access_token) return false;
@@ -2210,7 +2214,7 @@ function applyRemoteAppState(remoteAppState, preferLocal) {
     const remoteTeams = remoteAppState.teams
       .filter((item) => item?.id && item?.name)
       .filter((item) => !REMOVED_TEAM_IDS.has(String(item.id)))
-      .map((item) => ({ id: String(item.id), name: String(item.name), ...(item.photoUrl ? { photoUrl: String(item.photoUrl), photoPath: String(item.photoPath || "") } : {}) }));
+      .map((item) => ({ id: String(item.id), name: String(item.name), ...(item.photoUrl ? { photoUrl: String(item.photoUrl), photoPath: String(item.photoPath || "") } : {}), ...(Array.isArray(item.standings) && item.standings.length ? { standings: item.standings, standingsUpdatedAt: String(item.standingsUpdatedAt || ""), standingsSource: String(item.standingsSource || "") } : {}) }));
     const teamsById = new Map(
       (preferLocal ? [...remoteTeams, ...state.teams] : [...state.teams, ...remoteTeams]).map((item) => [
         item.id,
@@ -2745,7 +2749,11 @@ function applyAccessMode() {
   });
   document.querySelectorAll(".main-content button").forEach((button) => {
     const navigationOnly = button.matches(
+<<<<<<< HEAD
       "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], [data-statistics-tab], #back-to-matches"
+=======
+      "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], [data-matches-tab], #back-to-matches"
+>>>>>>> feat/clasificacion-en-partidos
     );
     if (!navigationOnly) button.disabled = !editable;
   });
@@ -3395,14 +3403,42 @@ function renderPlayerRating(key, label, value) {
   `;
 }
 
+function bindMatchesTabs() {
+  views.matches.querySelectorAll("[data-matches-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      matchesTab = button.dataset.matchesTab;
+      renderMatches();
+      applyAccessMode();
+    });
+  });
+}
+
 function renderMatches() {
   const matches = activeMatches();
   const videos = (state.matchVideos || []).filter((item) => item.teamId === state.activeTeamId);
+  const tabs = `
+    <div class="detail-tabs matches-subtabs">
+      <button class="detail-tab ${matchesTab === "matches" ? "active" : ""}" data-matches-tab="matches" type="button">Partidos</button>
+      <button class="detail-tab ${matchesTab === "standings" ? "active" : ""}" data-matches-tab="standings" type="button">Clasificación</button>
+    </div>`;
+  if (matchesTab === "standings") {
+    views.matches.innerHTML = `
+      <div class="active-team-context">
+        <span class="eyebrow">Equipo seleccionado</span>
+        <strong>${escapeHtml(currentTeam().name)}</strong>
+      </div>
+      ${tabs}
+      ${standingsHtml()}
+    `;
+    bindMatchesTabs();
+    return;
+  }
   views.matches.innerHTML = `
     <div class="active-team-context">
       <span class="eyebrow">Equipo seleccionado</span>
       <strong>${escapeHtml(currentTeam().name)}</strong>
     </div>
+    ${tabs}
     <div class="match-grid">
       ${matches
         .slice()
@@ -3425,6 +3461,7 @@ function renderMatches() {
     </section>
   `;
 
+  bindMatchesTabs();
   views.matches.querySelectorAll("[data-open-match]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedMatchId = button.dataset.openMatch;
@@ -3813,17 +3850,20 @@ function openMatchReportImport(matchItem) {
   matchReportImportDialog.showModal();
 }
 
-function renderStandings() {
-  const table = activeSeason === LEGACY_SEASON ? FINAL_STANDINGS : [];
+// Clasificación del equipo seleccionado. Se rellena desde la clasificación oficial de la FFIB
+// (team.standings = [{ name, played, won, drawn, lost, goalsFor, goalsAgainst, points }]).
+function standingsHtml() {
+  const team = currentTeam();
   const isHistoricalSeason = activeSeason === LEGACY_SEASON;
-
-  views.standings.innerHTML = `
+  const table = isHistoricalSeason ? FINAL_STANDINGS : (team.standings || []);
+  const hasGoals = table.some((row) => row.goalsFor != null);
+  const updated = team.standingsUpdatedAt ? formatDate(String(team.standingsUpdatedAt).slice(0, 10)) : "";
+  return `
     <div class="section-intro">
       <div>
-        <h2>${isHistoricalSeason ? "Clasificación final · Cadete Preferente" : `Clasificación · ${activeSeason}`}</h2>
-        <p class="meta">${isHistoricalSeason ? "Clasificación definitiva de la categoría Cadete Preferente." : "La clasificación de la nueva temporada aparecerá aquí cuando se incorporen sus datos."}</p>
+        <h2>${isHistoricalSeason ? "Clasificación final · Cadete Preferente" : `Clasificación · ${escapeHtml(team.name)}`}</h2>
+        <p class="meta">${isHistoricalSeason ? "Clasificación definitiva de la categoría Cadete Preferente." : (updated ? `Datos de la FFIB · actualizada el ${updated}` : "Datos de la FFIB")}</p>
       </div>
-      ${isHistoricalSeason ? `<span class="tag">14 jornadas</span>` : ""}
     </div>
     ${
       table.length
@@ -3838,21 +3878,23 @@ function renderStandings() {
                     <th>G</th>
                     <th>E</th>
                     <th>P</th>
+                    ${hasGoals ? "<th>GF</th><th>GC</th>" : ""}
                     <th>Pts</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${table
                     .map(
-                      (team, index) => `
-                        <tr class="${team.name === currentTeam().name ? "highlight-row" : ""}">
+                      (row, index) => `
+                        <tr class="${row.name === team.name || /ferreries/i.test(row.name) ? "highlight-row" : ""}">
                           <td><strong>${index + 1}</strong></td>
-                          <td class="team-cell">${escapeHtml(team.name)}</td>
-                          <td>${team.played}</td>
-                          <td>${team.won}</td>
-                          <td>${team.drawn}</td>
-                          <td>${team.lost}</td>
-                          <td><strong>${team.points}</strong></td>
+                          <td class="team-cell">${escapeHtml(row.name)}</td>
+                          <td>${row.played}</td>
+                          <td>${row.won}</td>
+                          <td>${row.drawn}</td>
+                          <td>${row.lost}</td>
+                          ${hasGoals ? `<td>${row.goalsFor ?? ""}</td><td>${row.goalsAgainst ?? ""}</td>` : ""}
+                          <td><strong>${row.points}</strong></td>
                         </tr>
                       `
                     )
@@ -3861,11 +3903,12 @@ function renderStandings() {
               </table>
             </div>
           </div>`
-        : `<div class="empty-state">Todavía no hay datos de clasificación para la temporada ${activeSeason}.</div>`
+        : `<div class="empty-state">Todavía no hay clasificación cargada para este equipo.</div>`
     }
   `;
 }
 
+<<<<<<< HEAD
 // ---- Análisis: Resumen, Comparar jugadores y Participación (dentro de Estadísticas) ----
 function statisticsTabsHtml() {
   const tab = (id, label) => `<button class="detail-tab ${statisticsTab === id ? "active" : ""}" data-statistics-tab="${id}" type="button">${label}</button>`;
@@ -4000,6 +4043,10 @@ function renderParticipationTab() {
         <tbody>${players.map((p) => `<tr><th class="part-name">${p.number ? `<span class="mstat-dorsal">${escapeHtml(String(p.number))}</span>` : ""}<button class="player-link" type="button" data-open-player="${escapeAttr(p.id)}" title="Abrir ficha">${escapeHtml(p.name)}</button></th>${matches.map((m) => cell(p, m)).join("")}<td><strong>${matches.filter((m) => minutesInMatch(p, m) !== null).length}</strong></td></tr>`).join("")}</tbody>
       </table></div></div>
     </div>`;
+=======
+function renderStandings() {
+  views.standings.innerHTML = standingsHtml();
+>>>>>>> feat/clasificacion-en-partidos
 }
 
 function renderStatistics() {
