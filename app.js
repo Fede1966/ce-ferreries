@@ -3019,6 +3019,15 @@ function renderPlayerStatistics(item, body) {
     .slice()
     .sort((a, b) => b.round - a.round)[0];
 
+  const gk = goalkeeperTotals(item);
+  const gkCards = item.position === "Portero"
+    ? renderPlayerStatCard("Goles encajados", gk.goalsConceded, "GE", [
+        `${formatPerMatch(gk.goalsConceded, gk.matches)} por partido`,
+        `${gk.cleanSheets} porterías a cero`,
+        ...(gk.pending ? [`${gk.pending} partido(s) pendientes de repartir`] : [])
+      ])
+    : "";
+
   body.innerHTML = `
     <section class="player-tab-page player-statistics-page">
       <div class="player-statistics-toolbar">
@@ -3034,6 +3043,7 @@ function renderPlayerStatistics(item, body) {
       <div class="player-stat-cards">
         ${renderFeaturedPlayerStat(officialMatches, totals.minutes, starts)}
         ${renderPlayerStatCard("Goles marcados", totals.goals, "GO")}
+        ${gkCards}
         ${renderPlayerStatCard("Asistencias de gol", totals.assists, "AS")}
         ${renderPlayerStatCard("Contribuciones de gol", totals.goals + totals.assists, "CG", [
           `${totals.goals} goles + ${totals.assists} asistencias`
@@ -3588,6 +3598,17 @@ function renderMatchStats(item, body) {
 
   const numCell = (d, stat, val, max, extraCls = "") => `<input class="mstat-input ${extraCls}" type="number" min="0"${max != null ? ` max="${max}"` : ""} data-pid="${pid(d)}" data-stat="${stat}" value="${val}" />`;
 
+  const concededCell = (d) => {
+    if (d.playerItem.position !== "Portero") return `<td class="mstat-cell mstat-muted">—</td>`;
+    const manual = playerReport(d.playerItem, item.id).goalsConceded;
+    const keepers = players.filter((p) => p.position === "Portero" && (item.actaPlayers?.[p.id]?.role || "none") !== "none");
+    const score = parseScore(item.score);
+    const against = score ? (ownTeamSide(item) === "away" ? score.home : score.away) : "";
+    const auto = keepers.length <= 1 && against !== "" ? against : "";
+    const hint = keepers.length > 1 ? "reparte tú" : (auto !== "" ? `auto: ${auto}` : "");
+    return `<td class="mstat-cell"><input class="mstat-input" type="number" min="0" data-pid="${pid(d)}" data-stat="goalsConceded" value="${manual ?? ""}" placeholder="${escapeAttr(String(hint))}" /></td>`;
+  };
+
   const minutesCell = (d) => {
     if (!quarterMode) return `<td class="mstat-cell">${numCell(d, "minutes", d.minutes, duration)}</td>`;
     const annotated = d.quarters.some(Boolean);
@@ -3611,6 +3632,7 @@ function renderMatchStats(item, body) {
               <th class="mstat-col-stat">Titular</th>
               <th class="mstat-col-stat">${quarterMode ? "Cuartos jugados" : "Minutos"}</th>
               <th class="mstat-col-stat">Goles</th>
+              <th class="mstat-col-stat" title="Solo porteros. Vacío = automático si solo jugó un portero">Encajados</th>
               <th class="mstat-col-stat">Asistencias</th>
               <th class="mstat-col-stat mstat-col-card">TA</th>
               <th class="mstat-col-stat mstat-col-card">TR</th>
@@ -3626,6 +3648,7 @@ function renderMatchStats(item, body) {
                 <td class="mstat-cell">${roleCell(d)}</td>
                 ${minutesCell(d)}
                 <td class="mstat-cell">${numCell(d, "goals", d.goals, null)}</td>
+                ${concededCell(d)}
                 <td class="mstat-cell">${numCell(d, "assists", d.assists, null)}</td>
                 <td class="mstat-cell">${numCell(d, "yellowCards", d.yellowCards, 2, "mstat-input-yellow")}</td>
                 <td class="mstat-cell">${numCell(d, "redCards", d.redCards, 1, "mstat-input-red")}</td>
@@ -3677,6 +3700,7 @@ function renderMatchStats(item, body) {
       report.minutes = role === "none" ? 0 : minutes;
       report.goals = goals;
       report.assists = assists;
+      if (playerItem.position === "Portero") report.goalsConceded = normalizeGoalsConceded(get("goalsConceded"));
       report.yellowCards = yellows;
       report.redCards = reds;
 
@@ -3919,6 +3943,7 @@ function renderStatistics() {
                   <th>Jugados</th>
                   <th>Minutos</th>
                   <th>Goles</th>
+                  <th>Encajados</th>
                   <th>Asistencias de gol</th>
                   <th>Tiros a puerta</th>
                   <th>Pases de gol</th>
@@ -4021,6 +4046,7 @@ function renderPlayerStatisticsRow(item) {
       <td>${item.played}</td>
       <td>${item.minutes}</td>
       <td>${item.goals}</td>
+      <td>${item.position === "Portero" ? `${item.gk.goalsConceded}${item.gk.pending ? ` <small title="Partidos pendientes de repartir">(+${item.gk.pending}?)</small>` : ""}` : "—"}</td>
       <td>${item.assists}</td>
       <td>${item.shotsOnTarget}</td>
       <td>${item.goalPasses}</td>
@@ -4669,7 +4695,8 @@ function normalizePlayerReports(reports) {
           goals: nonNegativeInteger(value?.goals),
           assists: nonNegativeInteger(value?.assists),
           shotsOnTarget: nonNegativeInteger(value?.shotsOnTarget),
-          goalPasses: nonNegativeInteger(value?.goalPasses)
+          goalPasses: nonNegativeInteger(value?.goalPasses),
+          goalsConceded: normalizeGoalsConceded(value?.goalsConceded)
         }
       ];
     })
@@ -4691,7 +4718,8 @@ function emptyPlayerReport() {
     goals: 0,
     assists: 0,
     shotsOnTarget: 0,
-    goalPasses: 0
+    goalPasses: 0,
+    goalsConceded: null
   };
 }
 
@@ -4763,8 +4791,42 @@ function playerReport(item, matchId) {
     goals: nonNegativeInteger(value?.goals),
     assists: nonNegativeInteger(value?.assists),
     shotsOnTarget: nonNegativeInteger(value?.shotsOnTarget),
-    goalPasses: nonNegativeInteger(value?.goalPasses)
+    goalPasses: nonNegativeInteger(value?.goalPasses),
+    goalsConceded: normalizeGoalsConceded(value?.goalsConceded)
   };
+}
+
+function normalizeGoalsConceded(value) {
+  return value == null || value === "" ? null : nonNegativeInteger(value);
+}
+
+// Goles encajados por portero en un partido.
+// Manual (lo pone el entrenador) si existe; si no, automático cuando solo jugó un portero.
+// Si jugaron dos o más porteros y nadie lo ha repartido, queda pendiente (value null).
+function goalsConcededInMatch(playerItem, matchItem) {
+  if (playerItem.position !== "Portero" || !playerParticipatedInMatch(playerItem, matchItem)) return null;
+  const manual = playerReport(playerItem, matchItem.id).goalsConceded;
+  if (manual != null) return { value: manual, manual: true };
+  const score = parseScore(matchItem.score);
+  if (!score) return { value: null, pending: true };
+  const against = ownTeamSide(matchItem) === "away" ? score.home : score.away;
+  const keepers = activePlayers().filter((p) => p.position === "Portero" && playerParticipatedInMatch(p, matchItem));
+  if (keepers.length === 1) return { value: against, manual: false };
+  return { value: null, pending: true, against };
+}
+
+function goalkeeperTotals(playerItem) {
+  const totals = { goalsConceded: 0, cleanSheets: 0, matches: 0, pending: 0 };
+  if (playerItem.position !== "Portero") return totals;
+  activeMatches().forEach((matchItem) => {
+    const info = goalsConcededInMatch(playerItem, matchItem);
+    if (!info) return;
+    if (info.value == null) { totals.pending += 1; return; }
+    totals.matches += 1;
+    totals.goalsConceded += info.value;
+    if (info.value === 0) totals.cleanSheets += 1;
+  });
+  return totals;
 }
 
 function ensurePlayerReport(item, matchId) {
@@ -5137,6 +5199,7 @@ function buildPlayerStatistics() {
         played,
         participation: totalMatches ? Math.round((appearances.length / totalMatches) * 100) : 0,
         ...totals,
+        gk: goalkeeperTotals(item),
         reports: Object.keys(item.reports || {}).filter((matchId) => {
           if (!matchIds.has(matchId)) return false;
           const report = playerReport(item, matchId);
