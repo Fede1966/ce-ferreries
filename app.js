@@ -4007,7 +4007,6 @@ function renderCompareTab() {
     ["Minutos", (r) => r.minutes],
     ["Minutos por partido", (r) => per(r, r.minutes)],
     ["Goles", (r) => r.goals],
-    ["Asistencias", (r) => r.assists],
     ["Amarillas", (r) => r.yellowCards],
     ["Rojas", (r) => r.redCards]
   ];
@@ -4075,10 +4074,7 @@ function renderPlayersStatistics() {
   const rankingCards = [
     { title: "Partidos", key: "played", suffix: "" },
     { title: "Minutos", key: "minutes", suffix: "" },
-    { title: "Goles", key: "goals", suffix: "" },
-    { title: "Asistencias de gol", key: "assists", suffix: "" },
-    { title: "Tiros a puerta", key: "shotsOnTarget", suffix: "" },
-    { title: "Recuperaciones", key: "recoveries", suffix: "" }
+    { title: "Goles", key: "goals", suffix: "" }
   ];
 
   views.statistics.innerHTML = `
@@ -4143,13 +4139,6 @@ function renderPlayersStatistics() {
                   <th>Minutos</th>
                   <th>Goles</th>
                   <th>Encajados</th>
-                  <th>Asistencias de gol</th>
-                  <th>Tiros a puerta</th>
-                  <th>Pases de gol</th>
-                  <th>Pases correctos</th>
-                  <th>Pases fallados</th>
-                  <th>Pérdidas</th>
-                  <th>Recuperaciones</th>
                   <th>Amarillas</th>
                   <th>Rojas</th>
                 </tr>
@@ -4246,13 +4235,6 @@ function renderPlayerStatisticsRow(item) {
       <td>${item.minutes}</td>
       <td>${item.goals}</td>
       <td>${item.position === "Portero" ? `${item.gk.goalsConceded}${item.gk.pending ? ` <small title="Partidos pendientes de repartir">(+${item.gk.pending}?)</small>` : ""}` : "—"}</td>
-      <td>${item.assists}</td>
-      <td>${item.shotsOnTarget}</td>
-      <td>${item.goalPasses}</td>
-      <td>${item.completedPasses}</td>
-      <td>${item.failedPasses}</td>
-      <td>${item.losses}</td>
-      <td>${item.recoveries}</td>
       <td>${item.yellowCards}</td>
       <td>${item.redCards}</td>
     </tr>
