@@ -27,7 +27,13 @@ const TEAM_LOGIN_ACCOUNTS = {
   "alevin-b": { email: "calagaldana+alevin-b@gmail.com", teamId: "ce-ferreries-alevin-b" },
   "benjamin-a": { email: "calagaldana+benjamin-a@gmail.com", teamId: "ce-ferreries-benjamin-a" },
   "benjamin-b": { email: "calagaldana+benjamin-b@gmail.com", teamId: "ce-ferreries-benjamin-b" },
-  prebenjamin: { email: "calagaldana+prebenjamin@gmail.com", teamId: "ce-ferreries-prebenjamin" }
+  prebenjamin: { email: "calagaldana+prebenjamin@gmail.com", teamId: "ce-ferreries-prebenjamin" },
+  "infantil-b": { email: "calagaldana+infantil-b@gmail.com", teamId: "ce-ferreries-infantil-b" },
+  "prebenjamin-b": { email: "calagaldana+prebenjamin-b@gmail.com", teamId: "ce-ferreries-prebenjamin-b" }
+};
+// El coordinador puede ver y editar todos los equipos (igual que el administrador, pero con su propia cuenta).
+const COORDINATOR_ACCOUNTS = {
+  coordinador: { email: "calagaldana+coordinador@gmail.com" }
 };
 let authSession = loadAuthSession();
 
@@ -80,6 +86,7 @@ function canEdit() {
   if (!authSession?.access_token) return false;
   const email = authSession.user?.email?.toLocaleLowerCase("es") || "";
   if (email === ADMIN_EMAIL) return true;
+  if (Object.values(COORDINATOR_ACCOUNTS).some((account) => account.email === email)) return true;
   const assignedTeamId = Object.values(TEAM_LOGIN_ACCOUNTS)
     .find((account) => account.email === email)?.teamId;
   return Boolean(assignedTeamId && assignedTeamId === state?.activeTeamId);
@@ -299,7 +306,7 @@ loginForm.addEventListener("submit", async (event) => {
   const password = document.querySelector("#login-password").value;
   const email = username === ADMIN_EMAIL
     ? ADMIN_EMAIL
-    : TEAM_LOGIN_ACCOUNTS[username]?.email || "";
+    : TEAM_LOGIN_ACCOUNTS[username]?.email || COORDINATOR_ACCOUNTS[username]?.email || "";
   const submitButton = loginForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
   loginStatus.textContent = "Comprobando credenciales...";
