@@ -2993,69 +2993,62 @@ function renderPlayerDetail() {
 }
 
 function renderPlayerStatistics(item, body) {
-  const appearances = activeMatches().filter((matchItem) => playerParticipatedInMatch(item, matchItem));
-  const starts = activeMatches().filter((matchItem) => playerStartedMatch(item, matchItem)).length;
+  const played = sortedPlayedMatches();
+  const appearances = played.filter((matchItem) => playerParticipatedInMatch(item, matchItem));
+  const starts = played.filter((matchItem) => playerStartedMatch(item, matchItem)).length;
   const totals = playerReportTotals(item);
-  const officialMatches = appearances.length;
-  const totalPasses = totals.completedPasses + totals.failedPasses;
-  const passAccuracy = totalPasses ? (totals.completedPasses / totalPasses) * 100 : 0;
-  const latestAppearance = appearances
-    .slice()
-    .sort((a, b) => b.round - a.round)[0];
+  const quarter = isQuarterTeam(state.activeTeamId);
+  const per = (value) => formatPerMatch(value, appearances.length);
+  const maxMinutes = Math.max(1, ...played.map((m) => minutesInMatch(item, m) || 0));
+  const barLabel = (m) => {
+    const mins = minutesInMatch(item, m);
+    if (mins === null) return "–";
+    return mins > 0 ? `${mins}'` : (quarter ? "s/a" : "0'");
+  };
 
   body.innerHTML = `
     <section class="player-tab-page player-statistics-page">
       <div class="player-statistics-toolbar">
         <div>
           <h2>Estadísticas del jugador</h2>
-          <p class="meta">Totales acumulados desde sus informes de partido.</p>
-        </div>
-        <div class="statistics-filters">
-          <span class="filter-chip">Temporada ${activeSeason}</span>
-          <span class="filter-chip">Todas las competiciones</span>
+          <p class="meta">Temporada ${activeSeason} · ${escapeHtml(currentTeam().name)}</p>
         </div>
       </div>
-      <div class="player-stat-cards">
-        ${renderFeaturedPlayerStat(officialMatches, totals.minutes, starts)}
-        ${renderPlayerStatCard("Goles marcados", totals.goals, "GO")}
-        ${renderPlayerStatCard("Asistencias de gol", totals.assists, "AS")}
-        ${renderPlayerStatCard("Contribuciones de gol", totals.goals + totals.assists, "CG", [
-          `${totals.goals} goles + ${totals.assists} asistencias`
-        ])}
-        ${renderPlayerStatCard("Tiros a puerta", totals.shotsOnTarget, "TP", [
-          `${formatPerMatch(totals.shotsOnTarget, officialMatches)} por partido`
-        ])}
-        ${renderPlayerStatCard("Pases", totals.completedPasses + totals.failedPasses, "PA", [
-          `${totals.completedPasses} correctos`,
-          `${totals.failedPasses} fallados`,
-          `${formatPercentage(passAccuracy)} de acierto`
-        ])}
-        ${renderPlayerStatCard("Pases de gol", totals.goalPasses, "PG", [
-          `${formatPerMatch(totals.goalPasses, officialMatches)} por partido`
-        ])}
-        ${renderPlayerStatCard("Balones ganados", totals.recoveries, "BG", [
-          `${formatPerMatch(totals.recoveries, officialMatches)} por partido`,
-          `${totals.losses} pérdidas`
-        ])}
-        ${renderPlayerStatCard("Tarjetas", totals.yellowCards + totals.redCards, "TA", [
-          `${totals.yellowCards} amarillas`,
-          `${totals.redCards} rojas`
-        ])}
+      <div class="player-stat-cards player-stat-cards-main">
+        ${renderPlayerStatCard("Titularidades", starts, "TI", [`${appearances.length} de ${played.length} partidos`])}
+        ${renderPlayerStatCard("Minutos", totals.minutes, "MI", [`${per(totals.minutes)} por partido`])}
+        ${renderPlayerStatCard("Goles", totals.goals, "GO", [`${per(totals.goals)} por partido`])}
+        ${renderPlayerStatCard("Tarjetas", totals.yellowCards + totals.redCards, "TA", [`${totals.yellowCards} amarillas`, `${totals.redCards} rojas`])}
       </div>
-      <div class="player-stat-summary">
-        <div>
-          <span>Última aparición</span>
-          <strong>${latestAppearance ? `Jornada ${latestAppearance.round}` : "Sin apariciones"}</strong>
-        </div>
-        <div>
-          <span>Posición principal</span>
-          <strong>${escapeHtml(item.position)}</strong>
-        </div>
-        <div>
-          <span>Lateralidad</span>
-          <strong>${escapeHtml(item.laterality || "Diestro")}</strong>
-        </div>
+      <div class="player-two-cols">
+        <section class="panel">
+          <h3>Minutos por partido</h3>
+          ${played.length ? `<div class="minutes-bars">${played.map((m) => {
+            const mins = minutesInMatch(item, m) || 0;
+            return `<div class="minutes-bar"><span class="minutes-bar-value">${barLabel(m)}</span><div class="minutes-bar-track"><i style="height:${Math.round((mins / maxMinutes) * 100)}%"></i></div><span class="minutes-bar-label">J${m.round}</span></div>`;
+          }).join("")}</div><p class="meta">– no participó${quarter ? " · s/a: sin anotar" : ""}</p>` : `<div class="empty-state">Aún no hay partidos jugados.</div>`}
+        </section>
+        <section class="panel">
+          <h3>Participación en el equipo</h3>
+          <div class="statline"><span>Posición</span><b>${escapeHtml(item.position)}</b></div>
+          <div class="statline"><span>Partidos disputados</span><b>${appearances.length} de ${played.length}</b></div>
+          <div class="statline"><span>Titularidades</span><b>${starts}</b></div>
+          <div class="statline"><span>Minutos</span><b>${totals.minutes}'</b></div>
+        </section>
       </div>
+      <section class="panel">
+        <h3>Participación partido a partido</h3>
+        ${played.length ? `<div class="table-panel"><div class="data-table-scroll"><table class="data-table player-match-table">
+          <thead><tr><th>J</th><th>Fecha</th><th>Rival</th><th>Condición</th><th>Resultado</th><th>Minutos</th><th>Titular</th><th>Goles</th><th>TA / TR</th></tr></thead>
+          <tbody>${played.map((m) => {
+            const away = ownTeamSide(m) === "away";
+            const r = ownResult(m);
+            const rep = playerReport(item, m.id);
+            const took = playerParticipatedInMatch(item, m);
+            return `<tr class="${took ? "" : "match-row-absent"}"><td><strong>J${m.round}</strong></td><td>${m.date ? formatDate(m.date) : ""}</td><td>${escapeHtml(away ? m.home : m.away)}</td><td>${away ? "Visitante" : "Local"}</td><td>${r.own} – ${r.other}</td><td><strong>${took ? barLabel(m) : "–"}</strong></td><td>${took ? (playerStartedMatch(item, m) ? "Sí" : "No") : "–"}</td><td>${took ? rep.goals : "–"}</td><td>${took ? `${rep.yellowCards} / ${rep.redCards}` : "–"}</td></tr>`;
+          }).join("")}</tbody>
+        </table></div></div>` : `<div class="empty-state">Aún no hay partidos jugados.</div>`}
+      </section>
     </section>
   `;
 }

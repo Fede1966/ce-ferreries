@@ -3313,3 +3313,17 @@ button:focus-visible {
 @media (max-width:760px){.analysis-metrics{grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}}
 .player-link{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:#a7bdce;text-underline-offset:3px}
 .player-link:hover{color:#1a507e;text-decoration-color:currentColor}
+
+/* Ficha del jugador: 4 cifras + minutos por partido */
+.player-stat-cards-main{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.player-two-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.minutes-bars{display:flex;align-items:flex-end;gap:10px;height:190px;padding-top:8px}
+.minutes-bar{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:24px}
+.minutes-bar-track{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.minutes-bar-track i{display:block;width:70%;max-width:46px;background:#1a507e;border-radius:4px 4px 0 0;min-height:2px}
+.minutes-bar-value{font-size:.75rem;font-weight:700;margin-bottom:4px}
+.minutes-bar-label{font-size:.75rem;color:#697888;margin-top:4px}
+.statline{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f3}
+.statline:last-child{border:0}
+.match-row-absent{color:#a0a8b3}
+@media (max-width:760px){.player-stat-cards-main{grid-template-columns:repeat(2,1fr)}.player-two-cols{grid-template-columns:1fr}}
