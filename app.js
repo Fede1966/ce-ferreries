@@ -2096,11 +2096,12 @@ async function uploadActaFile(file, matchId) {
   if (!hasSupabaseConfig() || !canEdit()) return null;
   try {
     const path = `actas/${matchId}/${Date.now()}-${safeFileName(file.name)}`;
+    const accessToken = await getValidAccessToken();
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${PLAYER_PHOTOS_BUCKET}/${path}`, {
       method: "POST",
       headers: {
         apikey: getSupabaseAnonKey(),
-        Authorization: `Bearer ${getSupabaseAnonKey()}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": file.type || "application/octet-stream",
         "x-upsert": "true"
       },
