@@ -2905,6 +2905,7 @@ function renderPlayerDetail() {
   state.selectedPlayerId = item.id;
   const photoStyle = item.photo ? `style="background-image:url('${escapeAttr(item.photo)}')"` : "";
 
+  const playerTab = !canEdit() && state.activePlayerTab === "reports" ? "statistics" : state.activePlayerTab;
   views.playerDetail.innerHTML = `
     <div class="player-profile-header">
       <button class="secondary-button" id="back-to-squad" type="button">Volver a equipos</button>
@@ -2932,11 +2933,11 @@ function renderPlayerDetail() {
           ${renderPlayerInfo("Posición", item.position)}
           ${renderPlayerInfo("Partidos registrados", activeMatches().length)}
         </div>
-        <label class="profile-description">
+        ${canEdit() ? `<label class="profile-description">
           Descripción del jugador
           <textarea id="player-description" maxlength="2000" placeholder="Describe sus características técnicas, físicas, tácticas y personales...">${escapeHtml(item.description || "")}</textarea>
-        </label>
-        <section class="player-ratings-section">
+        </label>` : ""}
+        ${canEdit() ? `<section class="player-ratings-section">
           <div class="ratings-heading">
             <div>
               <h3>Valoración del jugador</h3>
@@ -2948,13 +2949,13 @@ function renderPlayerDetail() {
               .map(([key, label]) => renderPlayerRating(key, label, item.ratings?.[key] || 0))
               .join("")}
           </div>
-        </section>
+        </section>` : ""}
       </div>
     </section>
     <div class="detail-tabs player-detail-tabs">
-      <button class="detail-tab ${state.activePlayerTab === "statistics" ? "active" : ""}" data-player-tab="statistics" type="button">Estadísticas</button>
-      <button class="detail-tab ${state.activePlayerTab === "career" ? "active" : ""}" data-player-tab="career" type="button">Trayectoria</button>
-      <button class="detail-tab ${state.activePlayerTab === "reports" ? "active" : ""}" data-player-tab="reports" type="button">Informes de cada partido</button>
+      <button class="detail-tab ${playerTab === "statistics" ? "active" : ""}" data-player-tab="statistics" type="button">Estadísticas</button>
+      <button class="detail-tab ${playerTab === "career" ? "active" : ""}" data-player-tab="career" type="button">Trayectoria</button>
+      ${canEdit() ? `<button class="detail-tab ${playerTab === "reports" ? "active" : ""}" data-player-tab="reports" type="button">Informes de cada partido</button>` : ""}
     </div>
     <div id="player-tab-body"></div>
   `;
@@ -2962,7 +2963,7 @@ function renderPlayerDetail() {
   views.playerDetail.querySelector("#back-to-squad").addEventListener("click", () => setView("squad"));
   views.playerDetail.querySelector("#download-player-pdf").addEventListener("click", () => downloadPlayerPdf(item));
   views.playerDetail.querySelector("[data-edit-player]").addEventListener("click", () => openPlayerDialog(item.id));
-  views.playerDetail.querySelector("#player-description").addEventListener("input", (event) => {
+  views.playerDetail.querySelector("#player-description")?.addEventListener("input", (event) => {
     item.description = event.target.value;
     saveState();
   });
@@ -2984,8 +2985,8 @@ function renderPlayerDetail() {
   });
 
   const body = views.playerDetail.querySelector("#player-tab-body");
-  if (state.activePlayerTab === "career") renderPlayerCareer(item, body);
-  else if (state.activePlayerTab === "reports") renderPlayerReports(item, body);
+  if (playerTab === "career") renderPlayerCareer(item, body);
+  else if (playerTab === "reports" && canEdit()) renderPlayerReports(item, body);
   else renderPlayerStatistics(item, body);
 }
 
@@ -3480,6 +3481,7 @@ function renderMatchDetail() {
   }
   state.selectedMatchId = item.id;
 
+  const detailTab = !canEdit() && state.activeDetailTab === "plan" ? "lineup" : state.activeDetailTab;
   views.detail.innerHTML = `
     <div class="detail-header">
       <div class="detail-title">
@@ -3495,11 +3497,11 @@ function renderMatchDetail() {
       </div>
     </div>
     <div class="detail-tabs">
-      <button class="detail-tab ${state.activeDetailTab === "plan" ? "active" : ""}" data-detail-tab="plan" type="button">Plan de partido</button>
-      <button class="detail-tab ${state.activeDetailTab === "lineup" ? "active" : ""}" data-detail-tab="lineup" type="button">Alineación</button>
-      <button class="detail-tab ${state.activeDetailTab === "information" ? "active" : ""}" data-detail-tab="information" type="button">Información del partido</button>
-      <button class="detail-tab ${state.activeDetailTab === "video" ? "active" : ""}" data-detail-tab="video" type="button">Vídeo</button>
-      <button class="detail-tab ${state.activeDetailTab === "stats" ? "active" : ""}" data-detail-tab="stats" type="button">Estadísticas</button>
+      ${canEdit() ? `<button class="detail-tab ${detailTab === "plan" ? "active" : ""}" data-detail-tab="plan" type="button">Plan de partido</button>` : ""}
+      <button class="detail-tab ${detailTab === "lineup" ? "active" : ""}" data-detail-tab="lineup" type="button">Alineación</button>
+      <button class="detail-tab ${detailTab === "information" ? "active" : ""}" data-detail-tab="information" type="button">Información del partido</button>
+      <button class="detail-tab ${detailTab === "video" ? "active" : ""}" data-detail-tab="video" type="button">Vídeo</button>
+      <button class="detail-tab ${detailTab === "stats" ? "active" : ""}" data-detail-tab="stats" type="button">Estadísticas</button>
     </div>
     <div id="detail-body"></div>
   `;
@@ -3516,10 +3518,10 @@ function renderMatchDetail() {
   });
 
   const body = views.detail.querySelector("#detail-body");
-  if (state.activeDetailTab === "plan") renderPlan(item, body);
-  else if (state.activeDetailTab === "information") renderMatchInformation(item, body);
-  else if (state.activeDetailTab === "video") renderMatchVideo(item, body);
-  else if (state.activeDetailTab === "stats") renderMatchStats(item, body);
+  if (detailTab === "plan" && canEdit()) renderPlan(item, body);
+  else if (detailTab === "information") renderMatchInformation(item, body);
+  else if (detailTab === "video") renderMatchVideo(item, body);
+  else if (detailTab === "stats") renderMatchStats(item, body);
   else renderLineupEditor(item, body);
 }
 
