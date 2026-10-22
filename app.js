@@ -2548,7 +2548,7 @@ function recoveredTeamName(id) {
     "regional-preferente": "Regional Preferente",
     "ce-ferreries-juvenil-b": "Juvenil B",
     "ce-ferreries-juvenil-nacional": "Juvenil Nacional",
-    "ce-ferreries-regional-preferente": "Regional Preferente"
+    "ce-ferreries-regional-preferente": "División de Honor"
   };
   if (knownNames[id]) return knownNames[id];
   if (id === DEFAULT_TEAM_ID) return TEAM_NAME;
@@ -2606,7 +2606,7 @@ function recoverKnown2026SeasonData() {
   const recoveredTeams = [
     { id: "ce-ferreries-juvenil-nacional", name: "CE Ferreries Juvenil Nacional" },
     { id: "ce-ferreries-juvenil-preferente-b", name: "CE Ferreries Juvenil Preferente B" },
-    { id: "ce-ferreries-regional-preferente", name: "CE Ferreries Regional Preferente" }
+    { id: "ce-ferreries-regional-preferente", name: "CE Ferreries División de Honor" }
   ];
   recoveredTeams.forEach((team) => {
     if (!state.teams.some((item) => item.id === team.id)) {
