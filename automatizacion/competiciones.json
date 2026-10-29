@@ -81,7 +81,7 @@
       {
         "nombre": "Fase Clasificación Benjamín",
         "competicion": "23603205",
-        "grupo": "",
+        "grupo": "23651470",
         "delegacion": "30057",
         "equipoFfib": "FERRERIES \"B\""
       }
@@ -90,8 +90,9 @@
       {
         "nombre": "Prebenjamín",
         "competicion": "23661432",
-        "grupo": "",
-        "delegacion": "30057"
+        "grupo": "23661438",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"A\""
       }
     ]
   }

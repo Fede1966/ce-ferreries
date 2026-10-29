@@ -22,7 +22,23 @@ import { leerActa } from "./lector.mjs";
 
 const MODO_PEDIDO = (process.env.MODO || "prueba").trim();
 const faltanClaves = MODO_PEDIDO === "real" && !(process.env.FERRERIES_EMAIL && process.env.FERRERIES_PASSWORD);
-const MODO = faltanClaves ? "prueba" : MODO_PEDIDO;
+const SIMULACRO = MODO_PEDIDO === "simulacro";
+const MODO = faltanClaves || SIMULACRO ? "prueba" : MODO_PEDIDO;
+
+// Simulacro: hace como si faltara el último partido de cada equipo, para comprobar que
+// el programa lo encuentra en la FFIB y lo prepararía igual que está guardado. No guarda nada.
+function aplicarSimulacro(state) {
+  if (!SIMULACRO) return state;
+  const quitar = new Set();
+  for (const team of state.teams) {
+    const ultimo = state.matches
+      .filter((m) => m.teamId === team.id && m.status === "Jugado" && (m.competition || "league") !== "friendly")
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    if (ultimo) quitar.add(ultimo.id);
+  }
+  state.matches = state.matches.filter((m) => !quitar.has(m.id));
+  return state;
+}
 const config = JSON.parse(await readFile(new URL("./competiciones.json", import.meta.url), "utf8"));
 const excluidos = (process.env.ACTAS_EXCLUIDOS || "").split(/[;\n]/).map((n) => normalizeSearchText(n)).filter(Boolean);
 const resumen = [];
@@ -263,7 +279,8 @@ function aplicarPartido(state, prep, actaInfo) {
 async function importar() {
   log(`## Actas FFIB → ceferreries.app (${ahoraMadrid}, modo ${MODO})`);
   if (faltanClaves) log("⚠️ Faltan las claves FERRERIES_EMAIL y FERRERIES_PASSWORD en GitHub: se ejecuta en modo prueba, sin guardar.");
-  let { state } = await leerEstado();
+  let state = aplicarSimulacro((await leerEstado()).state);
+  if (SIMULACRO) log("Simulacro: se hace como si faltara el último partido de cada equipo.");
   const { candidatos, avisos } = await buscarCandidatos(state);
   log(`Partidos nuevos encontrados en la FFIB: ${candidatos.length}.`);
 
@@ -285,7 +302,7 @@ async function importar() {
 
   for (let intento = 1; intento <= 3; intento++) {
     const leido = await leerEstado();
-    state = leido.state;
+    state = aplicarSimulacro(leido.state);
     const anadidos = [], dudas = [], notas = [...avisos];
     for (const cand of candidatos) {
       const a = actas.get(cand.partido.acta);
