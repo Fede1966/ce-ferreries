@@ -357,7 +357,7 @@ async function diagnostico() {
   const { leerJornadaCruda } = await import("./ffib.mjs");
   for (const [teamId, comps] of Object.entries(config.equipos)) {
     for (const comp of comps.filter((c) => !c.grupo)) {
-      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 1);
+      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 0);
       log(`- ${teamId} · ${comp.nombre}: ${r.resumen}`);
       for (const g of r.grupos.slice(0, 8)) {
         const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1);

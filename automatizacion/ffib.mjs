@@ -39,14 +39,11 @@ function decodificar(buffer, contentType) {
 }
 
 export function urlJornada({ competicion, grupo, delegacion }, temporada, jornada) {
-  const p = new URLSearchParams({
-    cod_primaria: "1000110",
-    CodCompeticion: competicion,
-    CodGrupo: grupo || "",
-    CodTemporada: temporada,
-    CodJornada: String(jornada),
-    Sch_Codigo_Delegacion: delegacion
-  });
+  const p = new URLSearchParams({ cod_primaria: "1000110", CodCompeticion: competicion });
+  if (grupo) p.set("CodGrupo", grupo);
+  p.set("CodTemporada", temporada);
+  if (jornada) p.set("CodJornada", String(jornada));
+  p.set("Sch_Codigo_Delegacion", delegacion);
   return `${BASE}/NFG_CmpJornada?${p}`;
 }
 
@@ -91,7 +88,7 @@ export function esDelEquipo(partido, comp) {
 
 // Busca el grupo de una competición en el que juega el equipo
 export async function buscarGrupo(comp, temporada) {
-  const { grupos } = await leerJornada({ ...comp, grupo: "" }, temporada, 1);
+  const { grupos } = await leerJornada({ ...comp, grupo: "" }, temporada, 0);
   for (const g of grupos.filter((x) => x.valor)) {
     const { partidos } = await leerJornada({ ...comp, grupo: g.valor }, temporada, 1);
     if (partidos.some((p) => esDelEquipo(p, comp))) return g.valor;
@@ -119,6 +116,6 @@ export async function leerJornadaCruda(comp, temporada, jornada) {
   const ferreries = normalizeSearchText($("body").text()).includes("ferreries");
   return {
     grupos,
-    resumen: `${texto.length} car., grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
+    resumen: `${texto.length} car. «${texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)}», grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
   };
 }
