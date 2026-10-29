@@ -16,7 +16,7 @@ import {
   emptyPlan, emptyRatings, ensurePlayerReport, findExistingMatch, isQuarterTeam, looksLikeExistingPlayer,
   nameMatches, normalizeSearchText, normalizeTeamMatchStats, titleCaseTeam
 } from "./logica-app.mjs";
-import { buscarGrupo, descargarActa, esDelEquipo, leerJornada, peticiones } from "./ffib.mjs";
+import { buscarGrupos, descargarActa, esDelEquipo, leerJornada, peticiones } from "./ffib.mjs";
 import { descargarArchivo, guardarEstado, iniciarSesion, leerEstado, subirActa } from "./supabase.mjs";
 import { leerActa } from "./lector.mjs";
 
@@ -126,9 +126,15 @@ async function buscarCandidatos(state) {
     for (const comp of comps) {
       if (comp.desde && comp.desde > HOY) continue;
       if (!comp.grupo) {
-        comp.grupo = await buscarGrupo(comp, config.temporada);
-        if (!comp.grupo) { avisos.push(`${nombreEquipo(state, teamId)}: no encuentro su grupo en ${comp.nombre}.`); continue; }
-        avisos.push(`${nombreEquipo(state, teamId)}: grupo de ${comp.nombre} = ${comp.grupo} (conviene añadirlo a competiciones.json).`);
+        const grupos = await buscarGrupos(comp, config.temporada);
+        if (grupos.length !== 1) {
+          avisos.push(grupos.length
+            ? `${nombreEquipo(state, teamId)}: en ${comp.nombre} hay un Ferreries en varios grupos (${grupos.map((g) => `${g.texto} ${g.valor}`).join(", ")}); hay que indicar cuál en competiciones.json. No se importa.`
+            : `${nombreEquipo(state, teamId)}: no encuentro su grupo en ${comp.nombre}.`);
+          continue;
+        }
+        comp.grupo = grupos[0].valor;
+        avisos.push(`${nombreEquipo(state, teamId)}: grupo de ${comp.nombre} = ${grupos[0].texto} ${comp.grupo} (conviene añadirlo a competiciones.json).`);
       }
       const tipo = competitionKind(comp.nombre);
       const rondas = new Set(teamMatches.filter((m) => (m.competition || "league") === tipo).map((m) => Number(m.round)));
@@ -184,6 +190,11 @@ function prepararPartido(state, cand, parsed) {
       nuevos.push(player);
     }
     jugadores.push({ player, record });
+  }
+  const jugaron = jugadores.filter((j) => j.record.role !== "none");
+  const nuevosQueJugaron = jugaron.filter((j) => j.player.nuevo).length;
+  if (roster.length >= 5 && jugaron.length && nuevosQueJugaron / jugaron.length > 0.5) {
+    return { ...base, duda: `${nuevosQueJugaron} de ${jugaron.length} jugadores no están en la plantilla: ¿es el acta de otro equipo del club?` };
   }
   if (parecidos.length) {
     return { ...base, duda: `Jugador nuevo parecido a uno de la plantilla (${parecidos.join(", ")}): confirma que no está repetido.` };

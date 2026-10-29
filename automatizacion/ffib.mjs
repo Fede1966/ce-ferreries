@@ -123,14 +123,17 @@ export function esDelEquipo(partido, comp) {
   return new RegExp(`\\bferreries ${sufijo}\\b`).test(partido.textoNormalizado);
 }
 
-// Busca el grupo de una competición en el que juega el equipo
-export async function buscarGrupo(comp, temporada) {
+// Busca los grupos de una competición en los que juega el equipo
+export async function buscarGrupos(comp, temporada) {
   const { grupos } = await leerJornada({ ...comp, grupo: "" }, temporada, 0);
-  for (const g of grupos.filter((x) => x.valor)) {
-    const { partidos } = await leerJornada({ ...comp, grupo: g.valor }, temporada, 1);
-    if (partidos.some((p) => esDelEquipo(p, comp))) return g.valor;
+  const encontrados = [];
+  for (const g of grupos.filter((x) => x.valor && x.valor !== "0")) {
+    for (const jornada of [1, 2]) {
+      const { partidos } = await leerJornada({ ...comp, grupo: g.valor }, temporada, jornada);
+      if (partidos.some((p) => esDelEquipo(p, comp))) { encontrados.push({ valor: g.valor, texto: g.texto }); break; }
+    }
   }
-  return "";
+  return encontrados;
 }
 
 export async function descargarActa(acta) {
