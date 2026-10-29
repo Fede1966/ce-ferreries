@@ -1,19 +1,18 @@
-# Importa cada semana en ceferreries.app las actas de la FFIB de los partidos ya jugados.
-# Horas en UTC: domingo 21:00 y lunes 09:00 = 22:00 y 10:00 en invierno (23:00 y 11:00 en verano).
-# La pasada del lunes solo recoge lo que faltara el domingo (actas publicadas tarde, aplazados).
+# Importación de actas de la FFIB en ceferreries.app.
+# SIN PROGRAMACIÓN: la FFIB no entrega el PDF de las actas a programas automáticos y oculta
+# los marcadores de su web, así que esto solo se volverá a activar si la FFIB da un acceso
+# oficial. Mientras tanto, las actas se importan con el navegador del Mac (tareas de Claude).
+# El modo «comprobar» sigue siendo útil: relee las actas ya guardadas en la app (sin tocar la FFIB).
 name: Actas FFIB
 
 on:
-  schedule:
-    - cron: "0 21 * * 0"
-    - cron: "0 9 * * 1"
   workflow_dispatch:
     inputs:
       modo:
         description: "comprobar = releer actas ya guardadas · prueba = buscar en la FFIB sin guardar · real = importar y guardar"
         type: choice
-        options: [prueba, real, comprobar, simulacro, diagnostico, ficha]
-        default: prueba
+        options: [comprobar, prueba, simulacro, real]
+        default: comprobar
 
 concurrency:
   group: actas-ffib

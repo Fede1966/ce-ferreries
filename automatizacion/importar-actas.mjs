@@ -380,44 +380,8 @@ async function importar() {
   log(`Peticiones a la FFIB: ${peticiones}.`);
 }
 
-async function diagnostico() {
-  log(`## Diagnóstico de grupos FFIB (${HOY})`);
-  const { leerJornadaCruda, leerJornada: lj, registroCookies } = await import("./ffib.mjs");
-  const prueba = await lj(config.equipos["ce-ferreries-juvenil-nacional"][0], config.temporada, 8).catch((e) => ({ error: e.message, partidos: [] }));
-  log(`- Juvenil Nacional J8: ${prueba.error || `${prueba.partidos.length} partidos, ${prueba.partidos.filter((p) => p.textoNormalizado.includes("ferreries")).length} del Ferreries`} · cookies: ${[...new Set(registroCookies)].join(", ") || "ninguna"}`);
-  for (const [teamId, comps] of Object.entries(config.equipos)) {
-    for (const comp of comps.filter((c) => !c.grupo)) {
-      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 0).catch((e) => ({ resumen: e.message, grupos: [] }));
-      log(`- ${teamId} · ${comp.nombre}: ${r.resumen}`);
-      for (const g of r.grupos.filter((x) => x.valor && x.valor !== "0").slice(0, 8)) {
-        const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1).catch((e) => ({ resumen: e.message }));
-        log(`  - grupo ${g.valor} «${g.texto}»: ${rg.resumen}`);
-      }
-    }
-  }
-}
-
-async function diagnosticoFicha() {
-  const { estructuraFicha } = await import("./ffib.mjs");
-  const acta = process.env.ACTA || "767403";
-  const r = await estructuraFicha(acta);
-  const bloques = [
-    `## Ficha ${acta}: imágenes\n${Object.entries(r.imgs).map(([k, v]) => `${k}×${v}`).join(", ")}`,
-    `## Clases\n${Object.entries(r.clases).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([k, v]) => `${k}×${v}`).join(", ")}`,
-    `## Tablas\n${r.tablas.join("\n")}`
-  ];
-  for (const b of bloques) {
-    for (let i = 0; i < b.length && i < 30000; i += 3500) {
-      const trozo = b.slice(i, i + 3500).replace(/%/g, "%25").replace(/\n/g, "%0A");
-      console.log(`::notice title=Ficha::${trozo}`);
-    }
-  }
-}
-
 try {
-  if (MODO === "ficha") await diagnosticoFicha();
-  else if (MODO === "diagnostico") await diagnostico();
-  else if (MODO === "comprobar") await comprobar((await leerEstado()).state);
+  if (MODO === "comprobar") await comprobar((await leerEstado()).state);
   else await importar();
 } catch (error) {
   log(`❌ Error: ${error.message}`);
