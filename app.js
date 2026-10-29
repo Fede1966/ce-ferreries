@@ -267,7 +267,38 @@ const matchReportImportForm = document.querySelector("#match-report-import-form"
 const actaFileInput = document.querySelector("#acta-file");
 
 document.querySelectorAll(".nav-button").forEach((button) => {
-  if (button.dataset.view) button.addEventListener("click", () => setView(button.dataset.view));
+  if (!button.dataset.view) return;
+  button.addEventListener("click", () => {
+    if (button.dataset.statisticsNav) statisticsTab = button.dataset.statisticsNav;
+    closeSidebarMenu();
+    setView(button.dataset.view);
+  });
+});
+
+// Menú lateral: en el portátil está siempre a la vista; en el móvil se abre con el botón ☰.
+const sidebarMenu = document.querySelector("#app-sidebar");
+const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
+const menuToggle = document.querySelector("#menu-toggle");
+
+function openSidebarMenu() {
+  document.body.classList.add("sidebar-open");
+  sidebarBackdrop.hidden = false;
+  menuToggle.setAttribute("aria-expanded", "true");
+}
+
+function closeSidebarMenu() {
+  document.body.classList.remove("sidebar-open");
+  sidebarBackdrop.hidden = true;
+  menuToggle.setAttribute("aria-expanded", "false");
+}
+
+menuToggle.addEventListener("click", () => {
+  if (document.body.classList.contains("sidebar-open")) closeSidebarMenu();
+  else openSidebarMenu();
+});
+sidebarBackdrop.addEventListener("click", closeSidebarMenu);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) closeSidebarMenu();
 });
 
 document.querySelectorAll(".login-nav-button").forEach((button) => {
@@ -2715,9 +2746,7 @@ function render() {
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
   });
-  document.querySelectorAll(".nav-button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === normalizedMainView());
-  });
+  updateNavActive();
 
   Object.values(views).forEach((view) => view.classList.remove("active"));
   if (state.activeView === "detail") views.detail.classList.add("active");
@@ -2729,12 +2758,13 @@ function render() {
   createMatchFromActaButton.hidden = !(state.activeView === "matches" && canEdit());
   bulkActaButton.hidden = createMatchFromActaButton.hidden;
   addMatchVideoButton.style.display = state.activeView === "matches" ? "inline-flex" : "none";
-  toolbarTeamSelectorWrap.style.display = state.activeView === "squad" ? "flex" : "none";
   toolbarTeamSelector.innerHTML = [...state.teams]
     .sort((first, second) => teamRelevance(first) - teamRelevance(second) || first.name.localeCompare(second.name, "es"))
     .map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === state.activeTeamId ? "selected" : ""}>${escapeHtml(item.name)}</option>`)
     .join("");
   pageTitle.textContent = pageTitleForView(state.activeView);
+  const mobileTeamName = document.querySelector("#mobile-team-name");
+  if (mobileTeamName) mobileTeamName.textContent = currentTeam()?.name || "Área técnica";
 
   renderSquad();
   renderMatches();
@@ -2750,7 +2780,8 @@ function applyAccessMode() {
   document.body.classList.toggle("read-only-mode", !editable);
   updateLoginButtons();
   document.querySelectorAll(".main-content input, .main-content textarea, .main-content select").forEach((control) => {
-    control.disabled = !editable;
+    // Elegir jugadores en el comparador es solo consulta: también para visitantes.
+    control.disabled = control.matches("[data-compare-slot]") ? false : !editable;
   });
   document.querySelectorAll(".main-content button").forEach((button) => {
     const navigationOnly = button.matches(
@@ -2763,6 +2794,18 @@ function applyAccessMode() {
   addMatchVideoButton.hidden = !editable;
 }
 
+function updateNavActive() {
+  const mainView = normalizedMainView();
+  document.querySelectorAll(".nav-button[data-view]").forEach((button) => {
+    const sameView = button.dataset.view === mainView;
+    const sameTab = !button.dataset.statisticsNav || button.dataset.statisticsNav === statisticsTab;
+    const isActive = sameView && sameTab;
+    button.classList.toggle("active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+}
+
 function normalizedMainView() {
   if (state.activeView === "detail") return "matches";
   if (state.activeView === "playerDetail") return "squad";
@@ -2770,15 +2813,19 @@ function normalizedMainView() {
 }
 
 function pageTitleForView(view) {
+  if (view === "statistics") {
+    const statisticsTitles = { summary: "Resumen", players: "Estadísticas", compare: "Comparar jugadores", participation: "Participación" };
+    return statisticsTitles[statisticsTab] || "Estadísticas";
+  }
   const titles = {
-    squad: "Equipos",
+    squad: "Plantilla",
     matches: "Partidos",
     standings: "Clasificación",
     statistics: "Estadísticas",
     playerDetail: "Ficha del jugador",
     detail: "Detalle de partido"
   };
-  return titles[view] || "Equipos";
+  return titles[view] || "Plantilla";
 }
 
 function renderSquad() {
@@ -2939,7 +2986,7 @@ function renderPlayerDetail() {
   const playerTab = !canEdit() && state.activePlayerTab === "reports" ? "statistics" : state.activePlayerTab;
   views.playerDetail.innerHTML = `
     <div class="player-profile-header">
-      <button class="secondary-button" id="back-to-squad" type="button">Volver a equipos</button>
+      <button class="secondary-button back-link" id="back-to-squad" type="button">&larr; Volver a la plantilla</button>
       <div class="row-actions">
         <button class="primary-button" id="download-player-pdf" type="button">Descargar PDF</button>
         <button class="secondary-button" data-edit-player="${item.id}" type="button">Editar jugador</button>
@@ -3035,6 +3082,10 @@ function renderPlayerStatistics(item, body) {
     return mins > 0 ? `${mins}'` : (quarter ? "s/a" : "0'");
   };
 
+  const possibleMinutes = played.reduce((sum, m) => sum + resolveActaDuration(m.actaDuration, m.teamId, m.actaPlayers), 0);
+  const minutesShare = !quarter && possibleMinutes ? Math.round((totals.minutes / possibleMinutes) * 100) : null;
+  const goalsPer90 = !quarter && totals.minutes >= 90 ? formatPerMatch(totals.goals * 90, totals.minutes) : null;
+
   const gk = goalkeeperTotals(item);
   const gkCards = item.position === "Portero"
     ? renderPlayerStatCard("Goles encajados", gk.goalsConceded, "GE", [
@@ -3064,8 +3115,11 @@ function renderPlayerStatistics(item, body) {
           <h3>Minutos por partido</h3>
           ${played.length ? `<div class="minutes-bars">${played.map((m) => {
             const mins = minutesInMatch(item, m) || 0;
-            return `<div class="minutes-bar"><span class="minutes-bar-value">${barLabel(m)}</span><div class="minutes-bar-track"><i style="height:${Math.round((mins / maxMinutes) * 100)}%"></i></div><span class="minutes-bar-label">J${m.round}</span></div>`;
-          }).join("")}</div><p class="meta">– no participó${quarter ? " · s/a: sin anotar" : ""}</p>` : `<div class="empty-state">Aún no hay partidos jugados.</div>`}
+            const took = playerParticipatedInMatch(item, m);
+            const kind = !took ? "absent" : playerStartedMatch(item, m) ? "starter" : "substitute";
+            const tip = `J${m.round} · ${!took ? "No participó" : kind === "starter" ? "Titular" : "Suplente"}${took ? ` · ${barLabel(m)}` : ""}`;
+            return `<div class="minutes-bar minutes-bar-${kind}" title="${escapeAttr(tip)}"><span class="minutes-bar-value">${barLabel(m)}</span><div class="minutes-bar-track"><i style="height:${Math.round((mins / maxMinutes) * 100)}%"></i></div><span class="minutes-bar-label">J${m.round}</span></div>`;
+          }).join("")}</div><p class="meta minutes-legend"><span class="legend-dot legend-starter"></span>Titular <span class="legend-dot legend-substitute"></span>Suplente · – no participó${quarter ? " · s/a: sin anotar" : ""}</p>` : `<div class="empty-state">Aún no hay partidos jugados.</div>`}
         </section>
         <section class="panel">
           <h3>Participación en el equipo</h3>
@@ -3073,6 +3127,10 @@ function renderPlayerStatistics(item, body) {
           <div class="statline"><span>Partidos disputados</span><b>${appearances.length} de ${played.length}</b></div>
           <div class="statline"><span>Titularidades</span><b>${starts}</b></div>
           <div class="statline"><span>Minutos</span><b>${totals.minutes}'</b></div>
+          ${minutesShare !== null ? `<div class="statline"><span>Minutos jugados del total posible</span><b>${minutesShare}%</b></div>
+          <div class="share-meter" aria-hidden="true"><i style="width:${Math.min(100, minutesShare)}%"></i></div>` : ""}
+          ${appearances.length ? `<div class="statline"><span>Media por partido jugado</span><b>${per(totals.minutes)}'</b></div>` : ""}
+          ${goalsPer90 !== null ? `<div class="statline"><span>Goles cada 90 minutos</span><b>${goalsPer90}</b></div>` : ""}
         </section>
       </div>
       <section class="panel">
@@ -3912,7 +3970,8 @@ function standingsHtml() {
 // ---- Análisis: Resumen, Comparar jugadores y Participación (dentro de Estadísticas) ----
 function statisticsTabsHtml() {
   const tab = (id, label) => `<button class="detail-tab ${statisticsTab === id ? "active" : ""}" data-statistics-tab="${id}" type="button">${label}</button>`;
-  return `<div class="detail-tabs statistics-subtabs">${tab("summary", "Resumen")}${tab("players", "Jugadores")}${tab("compare", "Comparar")}${tab("participation", "Participación")}</div>`;
+  void tab;
+  return "";
 }
 
 function bindPlayerLinks(container) {
@@ -3931,6 +3990,8 @@ function bindStatisticsTabs() {
     button.addEventListener("click", () => {
       statisticsTab = button.dataset.statisticsTab;
       renderStatistics();
+      updateNavActive();
+      pageTitle.textContent = pageTitleForView(state.activeView);
       applyAccessMode();
     });
   });
@@ -3977,7 +4038,7 @@ function renderSummaryTab() {
         ${renderMetric("Puntos", stats.points)}
         ${renderMetric("Jugados", stats.played)}
         ${renderMetric("G · E · P", `${stats.won} · ${stats.drawn} · ${stats.lost}`)}
-        ${renderMetric("Goles", `${stats.goalsFor} – ${stats.goalsAgainst}`)}
+        ${renderMetric("Goles", `${stats.goalsFor} – ${stats.goalsAgainst} <small>(${stats.goalsFor - stats.goalsAgainst >= 0 ? "+" : ""}${stats.goalsFor - stats.goalsAgainst})</small>`)}
       </div>
       <div class="analysis-grid">
         <section class="panel"><h3>Evolución de puntos</h3>${chart}${form ? `<p class="meta">Últimos partidos: ${form}</p>` : ""}</section>
@@ -4000,25 +4061,57 @@ function renderCompareTab() {
       ${rows.map((r) => `<option value="${escapeAttr(r.id)}" ${compareIds[i] === r.id ? "selected" : ""}>${escapeHtml(r.name)}</option>`).join("")}
     </select>`).join("");
   const chosen = compareIds.map((id) => rows.find((r) => r.id === id)).filter(Boolean);
-  const per = (r, v) => (r.played ? (v / r.played).toFixed(1).replace(".", ",") : "0");
+  const quarter = isQuarterTeam(state.activeTeamId);
+  const playedMatches = sortedPlayedMatches();
+  const possibleMinutes = playedMatches.reduce((sum, m) => sum + resolveActaDuration(m.actaDuration, m.teamId, m.actaPlayers), 0);
+  const fmt = (value) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(value);
+  const perMatch = (r, v) => (r.played ? v / r.played : 0);
+  const per90 = (r, v) => (r.minutes ? (v * 90) / r.minutes : 0);
+  // [etiqueta, valor numérico, texto, mejor = "high" | "low" | null]
   const lines = [
-    ["Posición", (r) => r.position],
-    ["Partidos jugados", (r) => r.played],
-    ["Titular", (r) => r.starts],
-    ["Minutos", (r) => r.minutes],
-    ["Minutos por partido", (r) => per(r, r.minutes)],
-    ["Goles", (r) => r.goals],
-    ["Amarillas", (r) => r.yellowCards],
-    ["Rojas", (r) => r.redCards]
+    ["Partidos jugados", (r) => r.played, (r) => r.played, "high"],
+    ["Titularidades", (r) => r.starts, (r) => r.starts, "high"],
+    ["Minutos", (r) => r.minutes, (r) => `${r.minutes}'`, "high"],
+    ...(!quarter && possibleMinutes ? [["% de minutos posibles", (r) => r.minutes / possibleMinutes, (r) => `${Math.round((r.minutes / possibleMinutes) * 100)}%`, "high"]] : []),
+    ["Minutos por partido", (r) => perMatch(r, r.minutes), (r) => `${fmt(perMatch(r, r.minutes))}'`, "high"],
+    ["Goles", (r) => r.goals, (r) => r.goals, "high"],
+    ...(!quarter ? [["Goles cada 90 minutos", (r) => per90(r, r.goals), (r) => (r.minutes ? fmt(per90(r, r.goals)) : "–"), "high"]] : []),
+    ["Amarillas", (r) => r.yellowCards, (r) => r.yellowCards, "low"],
+    ["Rojas", (r) => r.redCards, (r) => r.redCards, "low"]
   ];
+  const samePosition = chosen.length >= 2 && chosen.every((r) => r.position === chosen[0].position);
+  const playerById = (id) => state.players.find((p) => p.id === id);
+  const head = (r) => {
+    const p = playerById(r.id);
+    const photo = p?.photo ? `style="background-image:url('${escapeAttr(p.photo)}')"` : "";
+    return `<button class="compare-head" type="button" data-open-player="${escapeAttr(r.id)}" title="Abrir ficha">
+      <span class="compare-photo" ${photo}>${p?.photo ? "" : escapeHtml(initials(r.name))}</span>
+      <strong>${escapeHtml(r.name)}</strong>
+      <span class="meta">${r.number ? `Dorsal ${escapeHtml(String(r.number))} · ` : ""}${escapeHtml(r.position || "")}</span>
+    </button>`;
+  };
+  const cells = (getValue, getText, best) => {
+    const values = chosen.map((r) => Number(getValue(r)) || 0);
+    const target = best === "high" ? Math.max(...values) : best === "low" ? Math.min(...values) : null;
+    const allEqual = values.every((v) => v === values[0]);
+    const maxValue = Math.max(...values, 0);
+    return chosen.map((r, i) => {
+      const winner = target !== null && !allEqual && values[i] === target;
+      const width = best === "high" && maxValue > 0 ? Math.round((values[i] / maxValue) * 100) : 0;
+      return `<td class="${winner ? "compare-best" : ""}"><span class="compare-value">${escapeHtml(String(getText(r)))}</span>${best === "high" ? `<span class="compare-bar" aria-hidden="true"><i style="width:${width}%"></i></span>` : ""}</td>`;
+    }).join("");
+  };
   return `
-    <div class="club-statistics-page analysis-page">
+    <div class="club-statistics-page analysis-page compare-page">
       <div class="compare-pickers">${picker}</div>
       ${chosen.length >= 2 ? `
+        <div class="compare-heads compare-cols-${chosen.length}">${chosen.map(head).join("")}</div>
+        ${samePosition ? "" : `<p class="compare-note">Los jugadores ocupan posiciones distintas. Tenlo en cuenta al comparar sus cifras.</p>`}
         <div class="table-panel"><div class="data-table-scroll"><table class="data-table compare-table">
-          <thead><tr><th></th>${chosen.map((r) => `<th>${r.number ? `#${r.number} ` : ""}${escapeHtml(r.name)}</th>`).join("")}</tr></thead>
-          <tbody>${lines.map(([label, fn]) => `<tr><th>${label}</th>${chosen.map((r) => `<td>${escapeHtml(String(fn(r)))}</td>`).join("")}</tr>`).join("")}</tbody>
-        </table></div></div>` : `<div class="empty-state">Elige al menos dos jugadores para compararlos.</div>`}
+          <thead><tr><th>Indicador</th>${chosen.map((r) => `<th>${escapeHtml(r.name)}</th>`).join("")}</tr></thead>
+          <tbody>${lines.map(([label, getValue, getText, best]) => `<tr><th>${label}</th>${cells(getValue, getText, best)}</tr>`).join("")}</tbody>
+        </table></div></div>
+        <p class="meta">En verde, el mejor valor de cada fila (en tarjetas, el que tiene menos).</p>` : `<div class="empty-state">Elige al menos dos jugadores para compararlos.</div>`}
     </div>`;
 }
 

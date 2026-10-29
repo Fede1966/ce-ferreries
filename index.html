@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CE Ferreries | Gestión técnica</title>
-    <link rel="stylesheet" href="styles.css?v=20261022-6" />
+    <link rel="stylesheet" href="styles.css?v=20261029-1" />
   </head>
   <body>
     <section class="landing-page" id="landing-page">
@@ -57,32 +57,49 @@
     </section>
 
     <div class="app-shell" id="technical-app">
-      <aside class="sidebar">
+      <header class="mobile-topbar">
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menú" aria-controls="app-sidebar" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <img class="mobile-topbar-crest" src="assets/ce-ferreries-crest.gif" alt="" />
+        <div class="mobile-topbar-title"><strong>CE Ferreries</strong><span id="mobile-team-name">Área técnica</span></div>
+      </header>
+      <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+      <aside class="sidebar app-sidebar" id="app-sidebar">
         <div class="brand">
-          <div class="crest header-crest">Ferre</div>
+          <img class="sidebar-crest" src="assets/ce-ferreries-crest.gif" alt="Escudo del CE Ferreries" />
           <div>
             <strong>CE Ferreries</strong>
             <span>Área técnica</span>
           </div>
         </div>
-        <a class="home-nav-link" href="./">Inicio</a>
-        <div class="season-navigation" aria-label="Temporadas">
-          <span class="season-navigation-label">Temporada</span>
-          <div class="season-tabs" role="tablist">
-            <button class="season-tab active" data-season="2025-2026" type="button" role="tab">2025-2026</button>
-            <button class="season-tab" data-season="2026-2027" type="button" role="tab">2026-2027</button>
+        <div class="sidebar-context">
+          <div class="season-navigation" aria-label="Temporadas">
+            <span class="season-navigation-label">Temporada</span>
+            <div class="season-tabs" role="tablist">
+              <button class="season-tab active" data-season="2025-2026" type="button" role="tab">2025-26</button>
+              <button class="season-tab" data-season="2026-2027" type="button" role="tab">2026-27</button>
+            </div>
           </div>
-        </div>
-        <nav class="nav-tabs" aria-label="Navegación principal">
-          <button class="nav-button active" data-view="squad">Equipos</button>
           <label class="header-team-selector" id="toolbar-team-selector-wrap">
+            <span>Equipo</span>
             <select id="toolbar-team-selector" aria-label="Seleccionar equipo"></select>
           </label>
-          <button class="nav-button" data-view="matches">Partidos</button>
-          <button class="nav-button" data-view="statistics">Estadísticas</button>
+        </div>
+        <nav class="nav-tabs" aria-label="Navegación principal">
+          <button class="nav-button" data-view="squad" type="button"><i class="nav-icon" aria-hidden="true">&#9673;</i>Plantilla</button>
+          <button class="nav-button" data-view="matches" type="button"><i class="nav-icon" aria-hidden="true">&#9636;</i>Partidos</button>
+          <span class="nav-section-label">Análisis</span>
+          <button class="nav-button" data-view="statistics" data-statistics-nav="summary" type="button"><i class="nav-icon" aria-hidden="true">&#9670;</i>Resumen</button>
+          <button class="nav-button" data-view="statistics" data-statistics-nav="players" type="button"><i class="nav-icon" aria-hidden="true">&#9776;</i>Estadísticas</button>
+          <button class="nav-button" data-view="statistics" data-statistics-nav="compare" type="button"><i class="nav-icon" aria-hidden="true">&#8644;</i>Comparar jugadores</button>
+          <button class="nav-button" data-view="statistics" data-statistics-nav="participation" type="button"><i class="nav-icon" aria-hidden="true">&#9638;</i>Participación</button>
+        </nav>
+        <div class="sidebar-footer">
           <button class="nav-button login-nav-button" type="button">Login</button>
           <span id="sync-status" class="sync-status" title="Estado de sincronización"></span>
-        </nav>
+          <a class="home-nav-link" href="./">&larr; Portada del club</a>
+        </div>
       </aside>
 
       <main class="main-content">
@@ -461,6 +478,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
     <script src="acta-fiche.js?v=20261021-2"></script>
-    <script src="app.js?v=20261022-13"></script>
+    <script src="app.js?v=20261029-1"></script>
   </body>
 </html>

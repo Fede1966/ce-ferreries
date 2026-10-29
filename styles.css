@@ -3334,3 +3334,616 @@ button:focus-visible {
 .mstat-q input{width:20px;height:20px;margin:0 0 2px}
 .mstat-qmin{display:inline-block;min-width:70px;margin-left:4px;font-weight:600}
 .mstat-qmin-empty{font-weight:400;font-style:italic;color:#a66}
+
+/* =====================================================================
+   Diseño 2026-10: menú lateral (portátil) y menú ☰ (móvil),
+   tarjetas más limpias en Resumen, ficha y comparador.
+   Todo va acotado a #technical-app para no tocar la portada.
+   ===================================================================== */
+#technical-app {
+  --navy: #12213f;
+  --navy-2: #1b2d52;
+  --sidebar-w: 264px;
+  min-height: 100vh;
+  background: #f3f5f8;
+}
+
+#technical-app .mobile-topbar {
+  display: none;
+}
+
+#technical-app > .app-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  width: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 26px 18px 20px;
+  overflow-y: auto;
+  color: #fff;
+  background: var(--navy);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 6%);
+}
+
+#technical-app > .app-sidebar .brand {
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 0 6px;
+}
+
+#technical-app .sidebar-crest {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+#technical-app > .app-sidebar .brand strong {
+  display: block;
+  font-size: 1.12rem;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+#technical-app > .app-sidebar .brand span {
+  color: #9fb0cc;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+#technical-app .sidebar-context {
+  display: grid;
+  gap: 12px;
+  padding: 14px 10px;
+  border-block: 1px solid rgb(255 255 255 / 9%);
+}
+
+#technical-app > .app-sidebar .season-navigation {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  margin: 0;
+}
+
+#technical-app > .app-sidebar .season-navigation-label,
+#technical-app > .app-sidebar .header-team-selector > span {
+  color: #9fb0cc;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+#technical-app > .app-sidebar .season-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(0 0 0 / 22%);
+}
+
+#technical-app > .app-sidebar .season-tab {
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: .86rem;
+}
+
+#technical-app > .app-sidebar .header-team-selector {
+  display: grid !important;
+  gap: 7px;
+  width: 100%;
+}
+
+#technical-app > .app-sidebar .header-team-selector select {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  color: #fff;
+  border-color: rgb(255 255 255 / 14%);
+  background-color: var(--navy-2);
+  font-size: .9rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#technical-app > .app-sidebar .nav-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: visible;
+  white-space: normal;
+}
+
+#technical-app .nav-section-label {
+  margin: 12px 12px 4px;
+  color: #7f91b0;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+#technical-app > .app-sidebar .nav-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
+  color: #d9e1ee;
+  background: transparent;
+  font-size: .95rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+#technical-app > .app-sidebar .nav-button:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 7%);
+}
+
+#technical-app > .app-sidebar .nav-button.active {
+  color: #fff;
+  background: var(--navy-2);
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+#technical-app .nav-icon {
+  width: 18px;
+  font-style: normal;
+  font-size: .9rem;
+  text-align: center;
+  opacity: .8;
+}
+
+#technical-app .sidebar-footer {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding: 14px 6px 0;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+}
+
+#technical-app .sidebar-footer .login-nav-button {
+  justify-content: center;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  text-align: center;
+}
+
+#technical-app .sidebar-footer .login-nav-button.authenticated {
+  border-color: transparent;
+  background: var(--green);
+  box-shadow: none;
+}
+
+#technical-app .sidebar-footer .sync-status {
+  justify-self: center;
+}
+
+#technical-app .sidebar-footer .home-nav-link {
+  justify-self: center;
+  color: #9fb0cc;
+  font-size: .8rem;
+  text-decoration: none;
+}
+
+#technical-app .sidebar-footer .home-nav-link:hover {
+  color: #fff;
+}
+
+#technical-app > .main-content {
+  margin-left: var(--sidebar-w);
+  padding: 34px clamp(20px, 3.5vw, 52px) 48px;
+}
+
+#technical-app .toolbar {
+  margin-bottom: 26px;
+}
+
+#technical-app .toolbar .eyebrow {
+  color: var(--red);
+  font-size: .72rem;
+  letter-spacing: .16em;
+}
+
+#technical-app .toolbar h1 {
+  color: var(--navy);
+  font-size: clamp(1.7rem, 2.6vw, 2.35rem);
+  font-weight: 850;
+  letter-spacing: -.02em;
+}
+
+/* Tarjetas y paneles con más aire */
+#technical-app .panel,
+#technical-app .table-panel {
+  border-color: #e3e7ee;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(18 33 63 / 4%);
+}
+
+#technical-app .panel {
+  padding: 20px 22px;
+}
+
+#technical-app .panel h3 {
+  margin: 0 0 14px;
+  color: var(--navy);
+  font-size: 1.12rem;
+}
+
+#technical-app .analysis-metrics .metric-card,
+#technical-app .player-stat-cards-main .player-stat-card {
+  border: 1px solid #e3e7ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(18 33 63 / 4%);
+}
+
+#technical-app .analysis-metrics .metric-card {
+  padding: 18px 20px;
+}
+
+#technical-app .analysis-metrics .metric-card span {
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#technical-app .analysis-metrics .metric-card strong {
+  color: var(--navy);
+  font-size: 2rem;
+}
+
+#technical-app .analysis-metrics .metric-card small {
+  color: var(--muted);
+  font-size: .95rem;
+  font-weight: 700;
+}
+
+#technical-app .points-chart {
+  color: var(--navy-2);
+}
+
+#technical-app .bar-row .bar i {
+  background: var(--navy-2);
+}
+
+/* Ficha: barras por titular / suplente y medidor de minutos */
+#technical-app .minutes-bar-starter .minutes-bar-track i {
+  background: var(--navy-2);
+}
+
+#technical-app .minutes-bar-substitute .minutes-bar-track i {
+  background: #6f95c9;
+}
+
+#technical-app .minutes-bar-absent .minutes-bar-value {
+  color: #a9b3c1;
+}
+
+#technical-app .minutes-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+#technical-app .legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+#technical-app .legend-starter { background: var(--navy-2); }
+#technical-app .legend-substitute { background: #6f95c9; margin-left: 6px; }
+
+#technical-app .share-meter {
+  height: 8px;
+  margin: -2px 0 10px;
+  border-radius: 99px;
+  background: #e8edf4;
+  overflow: hidden;
+}
+
+#technical-app .share-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+#technical-app .back-link {
+  border-color: transparent;
+  background: transparent;
+  color: var(--navy-2);
+  padding-left: 0;
+}
+
+/* Comparador */
+#technical-app .compare-pickers select {
+  min-height: 42px;
+  border: 1px solid #d7dde6;
+  border-radius: 9px;
+  background: #fff;
+}
+
+#technical-app .compare-heads {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+#technical-app .compare-cols-2 { grid-template-columns: repeat(2, 1fr); }
+#technical-app .compare-cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+#technical-app .compare-head {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 20px 12px;
+  border: 1px solid #e3e7ee;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  text-align: center;
+}
+
+#technical-app .compare-head:hover {
+  border-color: #b9c6da;
+}
+
+#technical-app .compare-head strong {
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+
+#technical-app .compare-photo {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #dfe6f0 center / cover no-repeat;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+#technical-app .compare-note {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--navy-2);
+  border-radius: 8px;
+  background: #e9eef6;
+  font-size: .9rem;
+}
+
+#technical-app .compare-table th:first-child {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+#technical-app .compare-table td {
+  min-width: 120px;
+  text-align: left;
+}
+
+#technical-app .compare-value {
+  font-weight: 750;
+}
+
+#technical-app .compare-bar {
+  display: block;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: #edf1f6;
+  overflow: hidden;
+}
+
+#technical-app .compare-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #9fb4d3;
+}
+
+#technical-app .compare-best .compare-value {
+  color: var(--green);
+}
+
+#technical-app .compare-best .compare-bar i {
+  background: var(--green);
+}
+
+/* ---- Móvil y tablet: barra superior + menú ☰ ---- */
+@media (max-width: 920px) {
+  #technical-app .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    padding: 8px 14px;
+    color: #fff;
+    background: var(--navy);
+  }
+
+  #technical-app .mobile-topbar-crest {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+  }
+
+  #technical-app .mobile-topbar-title {
+    display: grid;
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  #technical-app .mobile-topbar-title strong {
+    font-size: .95rem;
+    text-transform: uppercase;
+  }
+
+  #technical-app .mobile-topbar-title span {
+    overflow: hidden;
+    color: #9fb0cc;
+    font-size: .78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #technical-app .menu-toggle {
+    display: grid;
+    align-content: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 9px;
+    background: transparent;
+  }
+
+  #technical-app .menu-toggle span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
+  }
+
+  #technical-app > .app-sidebar {
+    position: fixed;
+    width: min(300px, 86vw);
+    padding-top: 22px;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / 35%);
+  }
+
+  body.sidebar-open #technical-app > .app-sidebar {
+    transform: none;
+  }
+
+  #technical-app .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgb(8 15 30 / 45%);
+  }
+
+  #technical-app > .main-content {
+    margin-left: 0;
+    padding: 18px 14px 32px;
+  }
+
+  #technical-app .compare-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  #technical-app .compare-head {
+    padding: 14px 6px;
+  }
+
+  #technical-app .compare-photo {
+    width: 52px;
+    height: 52px;
+  }
+
+  #technical-app .compare-head strong {
+    font-size: .88rem;
+  }
+
+  #technical-app .analysis-metrics .metric-card strong {
+    font-size: 1.55rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #technical-app > .app-sidebar {
+    transition: none;
+  }
+}
+
+/* Resumen / comparador sobre el fondo gris, sin caja blanca alrededor */
+#technical-app .analysis-page {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+#technical-app .analysis-grid {
+  gap: 16px;
+}
+
+/* Racha de resultados: G / E / P en chips de color */
+#technical-app .analysis-page .result {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: 0 2px;
+  border-radius: 7px;
+  color: #1d6b4c;
+  background: #e1f2e9;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+#technical-app .analysis-page .result.draw {
+  color: #7a5b00;
+  background: #fbf0cf;
+}
+
+#technical-app .analysis-page .result.loss {
+  color: #a01527;
+  background: #fbe2e5;
+}
+
+#technical-app .compare-pickers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#technical-app .compare-pickers select {
+  width: 100%;
+  min-width: 0;
+}
+
+#technical-app .compare-table th:first-child {
+  width: 30%;
+}
+
+@media (max-width: 560px) {
+  #technical-app .compare-pickers {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  #technical-app > .app-sidebar { box-shadow: none; }
+  body.sidebar-open #technical-app > .app-sidebar { box-shadow: 0 0 40px rgb(0 0 0 / 35%); }
+}
+
+@media (max-width: 560px) {
+  #technical-app .compare-table { table-layout: fixed; width: 100%; min-width: 0; }
+  #technical-app .compare-table td { min-width: 0; padding-inline: 8px; }
+  #technical-app .compare-table th:first-child { width: 38%; padding-inline: 8px; font-size: .7rem; }
+  #technical-app .compare-table thead th { font-size: .66rem; overflow-wrap: anywhere; }
+}
