@@ -46,7 +46,11 @@ function nombreEquipo(state, teamId) {
 }
 
 async function escribirResumen() {
+  if (!process.env.GITHUB_ACTIONS) return;
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${resumen.join("\n")}\n`);
+  // También como aviso del trabajo, para poder leerlo desde la API de GitHub
+  const texto = resumen.join("\n").replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  console.log(`::notice title=Resumen de actas::${texto}`);
 }
 
 // ------------------------------------------------------------------ comprobar
