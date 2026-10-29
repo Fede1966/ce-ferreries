@@ -9,17 +9,48 @@ const USER_AGENT = "CE Ferreries - importador semanal de actas";
 let ultimaPeticion = 0;
 export let peticiones = 0;
 
-async function pedir(url) {
+// La FFIB exige una cookie de sesión: se guarda la que manda y se reenvía en cada petición
+const cookies = new Map();
+export const registroCookies = [];
+
+function guardarCookies(res) {
+  const lista = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+  for (const c of lista) {
+    const [par] = c.split(";");
+    const i = par.indexOf("=");
+    if (i > 0) {
+      cookies.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
+      registroCookies.push(par.slice(0, i).trim());
+    }
+  }
+}
+
+async function pedirUnaVez(url) {
   const espera = ultimaPeticion + PAUSA_MS - Date.now();
   if (espera > 0) await new Promise((r) => setTimeout(r, espera));
   ultimaPeticion = Date.now();
   peticiones++;
+  let actual = url;
+  for (let salto = 0; salto < 5; salto++) {
+    const headers = { "User-Agent": USER_AGENT, "Accept-Language": "es-ES,es;q=0.9" };
+    if (cookies.size) headers.Cookie = [...cookies].map(([k, v]) => `${k}=${v}`).join("; ");
+    const res = await fetch(actual, { headers, redirect: "manual" });
+    guardarCookies(res);
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+      actual = new URL(res.headers.get("location"), actual).toString();
+      continue;
+    }
+    if (!res.ok) throw new Error(`FFIB respondió ${res.status}`);
+    return res;
+  }
+  throw new Error("FFIB: demasiadas redirecciones");
+}
+
+async function pedir(url) {
   let ultimoError;
   for (let intento = 0; intento < 3; intento++) {
     try {
-      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-      if (!res.ok) throw new Error(`FFIB respondió ${res.status}`);
-      return res;
+      return await pedirUnaVez(url);
     } catch (error) {
       ultimoError = error;
       await new Promise((r) => setTimeout(r, 4000 * (intento + 1)));
@@ -48,8 +79,14 @@ export function urlJornada({ competicion, grupo, delegacion }, temporada, jornad
 }
 
 async function html(url) {
-  const res = await pedir(url);
-  return decodificar(new Uint8Array(await res.arrayBuffer()), res.headers.get("content-type"));
+  for (let intento = 0; intento < 2; intento++) {
+    const res = await pedir(url);
+    const texto = decodificar(new Uint8Array(await res.arrayBuffer()), res.headers.get("content-type"));
+    if (!/No se ha aceptado el cookie/i.test(texto)) return texto;
+    // Primera visita: la FFIB acaba de dar la cookie; se repite la petición con ella
+    if (!cookies.size) await pedir("https://www.ffib.es/");
+  }
+  throw new Error("La FFIB no acepta la sesión (cookie): no se puede leer la página de jornada");
 }
 
 // Partidos de una página de jornada: fecha, hora, texto normalizado y número de acta
@@ -98,6 +135,7 @@ export async function buscarGrupo(comp, temporada) {
 
 export async function descargarActa(acta) {
   const p = new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta, NPcd_Pdf: "1" });
+  if (!cookies.size) await html(`${BASE}/NFG_CmpPartido?${new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta })}`);
   const res = await pedir(`${BASE}/NFG_CmpPartido?${p}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") throw new Error("La FFIB no ha devuelto un PDF");

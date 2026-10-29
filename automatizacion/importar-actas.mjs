@@ -354,13 +354,15 @@ async function importar() {
 
 async function diagnostico() {
   log(`## Diagnóstico de grupos FFIB (${HOY})`);
-  const { leerJornadaCruda } = await import("./ffib.mjs");
+  const { leerJornadaCruda, leerJornada: lj, registroCookies } = await import("./ffib.mjs");
+  const prueba = await lj(config.equipos["ce-ferreries-juvenil-nacional"][0], config.temporada, 8).catch((e) => ({ error: e.message, partidos: [] }));
+  log(`- Juvenil Nacional J8: ${prueba.error || `${prueba.partidos.length} partidos, ${prueba.partidos.filter((p) => p.textoNormalizado.includes("ferreries")).length} del Ferreries`} · cookies: ${[...new Set(registroCookies)].join(", ") || "ninguna"}`);
   for (const [teamId, comps] of Object.entries(config.equipos)) {
     for (const comp of comps.filter((c) => !c.grupo)) {
-      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 0);
+      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 0).catch((e) => ({ resumen: e.message, grupos: [] }));
       log(`- ${teamId} · ${comp.nombre}: ${r.resumen}`);
       for (const g of r.grupos.slice(0, 8)) {
-        const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1);
+        const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1).catch((e) => ({ resumen: e.message }));
         log(`  - grupo ${g.valor} «${g.texto}»: ${rg.resumen}`);
       }
     }
