@@ -12,7 +12,7 @@ on:
       modo:
         description: "comprobar = releer actas ya guardadas · prueba = buscar en la FFIB sin guardar · real = importar y guardar"
         type: choice
-        options: [prueba, real, comprobar]
+        options: [prueba, real, comprobar, diagnostico]
         default: prueba
 
 concurrency:

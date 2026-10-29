@@ -352,8 +352,24 @@ async function importar() {
   log(`Peticiones a la FFIB: ${peticiones}.`);
 }
 
+async function diagnostico() {
+  log(`## Diagnóstico de grupos FFIB (${HOY})`);
+  const { leerJornadaCruda } = await import("./ffib.mjs");
+  for (const [teamId, comps] of Object.entries(config.equipos)) {
+    for (const comp of comps.filter((c) => !c.grupo)) {
+      const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 1);
+      log(`- ${teamId} · ${comp.nombre}: ${r.resumen}`);
+      for (const g of r.grupos.slice(0, 8)) {
+        const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1);
+        log(`  - grupo ${g.valor} «${g.texto}»: ${rg.resumen}`);
+      }
+    }
+  }
+}
+
 try {
-  if (MODO === "comprobar") await comprobar((await leerEstado()).state);
+  if (MODO === "diagnostico") await diagnostico();
+  else if (MODO === "comprobar") await comprobar((await leerEstado()).state);
   else await importar();
 } catch (error) {
   log(`❌ Error: ${error.message}`);

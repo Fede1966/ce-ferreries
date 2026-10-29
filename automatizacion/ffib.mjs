@@ -106,3 +106,19 @@ export async function descargarActa(acta) {
   if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") throw new Error("La FFIB no ha devuelto un PDF");
   return bytes;
 }
+
+// Solo para diagnosticar: cuenta lo que hay en una página de jornada
+export async function leerJornadaCruda(comp, temporada, jornada) {
+  const texto = await html(urlJornada(comp, temporada, jornada));
+  const $ = cheerio.load(texto);
+  const grupos = $("select[name=grupo] option").map((_, o) => ({ valor: $(o).attr("value"), texto: $(o).text().trim() })).get();
+  const tablas = $("td > table").toArray().map((t) => $(t).text().replace(/\s+/g, " "));
+  const conFecha = tablas.filter((t) => /\d{2}-\d{2}-\d{4}/.test(t)).length;
+  const actas = $('a[href*="CodActa"], a[href*="codacta"], a[href*="cod_acta"]').length;
+  const enlaces = new Set($("a[href]").toArray().map((a) => ($(a).attr("href") || "").replace(/\?.*/, "")).filter((h) => /NFG_/i.test(h)));
+  const ferreries = normalizeSearchText($("body").text()).includes("ferreries");
+  return {
+    grupos,
+    resumen: `${texto.length} car., grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
+  };
+}
