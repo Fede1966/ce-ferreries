@@ -3,35 +3,96 @@
   "temporada": "22",
   "equipos": {
     "ce-ferreries-juvenil-nacional": [
-      { "nombre": "Liga Nacional Juvenil", "competicion": "23348373", "grupo": "23348374", "delegacion": "1" }
+      {
+        "nombre": "Liga Nacional Juvenil",
+        "competicion": "23348373",
+        "grupo": "23348374",
+        "delegacion": "1"
+      }
     ],
     "ce-ferreries-regional-preferente": [
-      { "nombre": "Copa División de Honor", "competicion": "23386057", "grupo": "23386059", "delegacion": "30057" },
-      { "nombre": "División de Honor", "competicion": "23348415", "grupo": "23348416", "delegacion": "30057", "desde": "2026-11-29" }
+      {
+        "nombre": "Copa División de Honor",
+        "competicion": "23386057",
+        "grupo": "23386059",
+        "delegacion": "30057"
+      },
+      {
+        "nombre": "División de Honor",
+        "competicion": "23348415",
+        "grupo": "23348416",
+        "delegacion": "30057",
+        "desde": "2026-11-29"
+      }
     ],
     "ce-ferreries-juvenil-preferente-b": [
-      { "nombre": "Copa Juvenil Preferente Menorca", "competicion": "23348629", "grupo": "23348631", "delegacion": "30057" }
+      {
+        "nombre": "Copa Juvenil Preferente Menorca",
+        "competicion": "23348629",
+        "grupo": "23348631",
+        "delegacion": "30057"
+      }
     ],
     "ce-ferreries-cadete-preferente": [
-      { "nombre": "Fase Clasificación Cadete", "competicion": "23509496", "grupo": "23509537", "delegacion": "30057" }
+      {
+        "nombre": "Fase Clasificación Cadete",
+        "competicion": "23509496",
+        "grupo": "23509537",
+        "delegacion": "30057"
+      }
     ],
     "ce-ferreries-infantil-preferente": [
-      { "nombre": "Infantil", "competicion": "23512951", "grupo": "", "delegacion": "30057" }
+      {
+        "nombre": "Infantil",
+        "competicion": "23512951",
+        "grupo": "23512953",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"A\""
+      }
     ],
     "ce-ferreries-alevin-a": [
-      { "nombre": "Alevín", "competicion": "23603441", "grupo": "", "delegacion": "30057", "equipoFfib": "FERRERIES \"A\"" }
+      {
+        "nombre": "Alevín",
+        "competicion": "23603441",
+        "grupo": "23641040",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"A\""
+      }
     ],
     "ce-ferreries-alevin-b": [
-      { "nombre": "Alevín", "competicion": "23603441", "grupo": "", "delegacion": "30057", "equipoFfib": "FERRERIES \"B\"" }
+      {
+        "nombre": "Alevín",
+        "competicion": "23603441",
+        "grupo": "23641016",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"B\""
+      }
     ],
     "ce-ferreries-benjamin-a": [
-      { "nombre": "Fase Clasificación Benjamín", "competicion": "23603205", "grupo": "23651454", "delegacion": "30057", "equipoFfib": "FERRERIES \"A\"" }
+      {
+        "nombre": "Fase Clasificación Benjamín",
+        "competicion": "23603205",
+        "grupo": "23651454",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"A\""
+      }
     ],
     "ce-ferreries-benjamin-b": [
-      { "nombre": "Fase Clasificación Benjamín", "competicion": "23603205", "grupo": "", "delegacion": "30057", "equipoFfib": "FERRERIES \"B\"" }
+      {
+        "nombre": "Fase Clasificación Benjamín",
+        "competicion": "23603205",
+        "grupo": "",
+        "delegacion": "30057",
+        "equipoFfib": "FERRERIES \"B\""
+      }
     ],
     "ce-ferreries-prebenjamin": [
-      { "nombre": "Prebenjamín", "competicion": "23661432", "grupo": "", "delegacion": "30057" }
+      {
+        "nombre": "Prebenjamín",
+        "competicion": "23661432",
+        "grupo": "",
+        "delegacion": "30057"
+      }
     ]
   }
 }
