@@ -140,11 +140,12 @@ export async function descargarActa(acta) {
   const ficha = `${BASE}/NFG_CmpPartido?${new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta })}`;
   // Como en el navegador: primero la ficha del partido y después su PDF
   await html(ficha);
-  const res = await pedir(`${ficha}&NPcd_Pdf=1`, { Referer: ficha });
+  const res = await pedir(`${ficha}&NPcd_Pdf=1`, { Referer: ficha, Accept: "application/pdf,text/html;q=0.9,*/*;q=0.8" });
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
     const inicio = new TextDecoder("windows-1252").decode(bytes.slice(0, 400)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
-    throw new Error(`La FFIB no ha devuelto un PDF (${res.headers.get("content-type") || "sin tipo"}, ${bytes.length} bytes: «${inicio}»)`);
+    const cab = [...res.headers].filter(([k]) => !/date|expires|cache|pragma|set-cookie/i.test(k)).map(([k, v]) => `${k}=${v.slice(0, 60)}`).join("; ");
+    throw new Error(`La FFIB no ha devuelto un PDF (estado ${res.status}, ${bytes.length} bytes, cabeceras: ${cab}${inicio ? `, «${inicio}»` : ""})`);
   }
   return bytes;
 }
