@@ -179,7 +179,18 @@ export async function estructuraFicha(acta) {
   $("img").each((_, i) => { const n = ($(i).attr("src") || "").split("/").pop().split("?")[0]; imgs[n] = (imgs[n] || 0) + 1; });
   const clases = {};
   $("[class]").each((_, e) => { ($(e).attr("class") || "").split(/\s+/).filter(Boolean).forEach((c) => { clases[c] = (clases[c] || 0) + 1; }); });
+  const tablas = $("table").toArray().map((t, k) => {
+    const titulo = tapar($(t).prevAll().first().text().replace(/\s+/g, " ").trim().slice(0, 40)) || tapar($(t).parent().prevAll().first().text().replace(/\s+/g, " ").trim().slice(0, 40));
+    const filas = $(t).children("tbody, thead").children("tr").add($(t).children("tr")).toArray();
+    const muestra = filas.slice(0, 3).map((tr) => $(tr).children("td, th").toArray().map((td) => {
+      const iconos = $(td).find("img").toArray().map((i) => ($(i).attr("src") || "").split("/").pop()).concat($(td).find("i[class]").toArray().map((i) => $(i).attr("class")));
+      const cls = $(td).attr("class") || "";
+      return `${cls ? `.${cls} ` : ""}${tapar($(td).text().replace(/\s+/g, " ").trim()).slice(0, 50)}${iconos.length ? ` {${iconos.join(",")}}` : ""}`;
+    }).join(" | ")).join(" // ");
+    const anid = $(t).parents("table").length;
+    return `T${k} (anid ${anid}, filas ${filas.length}, padre ${$(t).parent().prop("tagName")}.${($(t).parent().attr("class") || "").slice(0, 30)}) «${titulo}»: ${muestra}`;
+  });
   const lineas = $("body").text().split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean).map(tapar);
   const unicas = lineas.filter((l, i) => l !== lineas[i - 1]);
-  return { imgs, clases, lineas: unicas };
+  return { imgs, clases, lineas: unicas, tablas };
 }

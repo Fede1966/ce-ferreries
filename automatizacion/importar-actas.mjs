@@ -404,7 +404,7 @@ async function diagnosticoFicha() {
   const bloques = [
     `## Ficha ${acta}: imágenes\n${Object.entries(r.imgs).map(([k, v]) => `${k}×${v}`).join(", ")}`,
     `## Clases\n${Object.entries(r.clases).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([k, v]) => `${k}×${v}`).join(", ")}`,
-    `## Texto (nombres tapados)\n${r.lineas.join("\n")}`
+    `## Tablas\n${r.tablas.join("\n")}`
   ];
   for (const b of bloques) {
     for (let i = 0; i < b.length && i < 30000; i += 3500) {
