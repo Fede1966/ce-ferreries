@@ -166,3 +166,20 @@ export async function leerJornadaCruda(comp, temporada, jornada) {
     resumen: `${texto.length} car. «${texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)}», grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"} ${nombres.map((n) => `[${n}]`).join(" ")}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
   };
 }
+
+// Solo para diagnosticar: estructura de la ficha HTML de un partido, sin nombres de personas
+export async function estructuraFicha(acta) {
+  const ficha = `${BASE}/NFG_CmpPartido?${new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta })}`;
+  const texto = await html(ficha);
+  const $ = cheerio.load(texto);
+  $("script, style, noscript").remove();
+  const conservar = /^(TITULARES|SUPLENTES|SUSTITUCIONES|TARJETAS|GOLES|CUERPO|TÉCNICO|TECNICO|Entrenador|Delegado|ESTADIO|Ciudad|Fecha|Hora|Jornada|Temporada|principal|asistente|ÁRBITROS|ARBITROS|Árbitro|Acta|Partido|Local|Visitante|Resultado|Minuto|Capitán|Portero|Amarilla|Roja|Gol|Penalti|Propia|puerta|Entra|Sale)$/i;
+  const tapar = (t) => t.replace(/[A-Za-zÀ-ÿºª.'"-]+/g, (w) => (conservar.test(w) || w.length <= 1 ? w : "▢"));
+  const imgs = {};
+  $("img").each((_, i) => { const n = ($(i).attr("src") || "").split("/").pop().split("?")[0]; imgs[n] = (imgs[n] || 0) + 1; });
+  const clases = {};
+  $("[class]").each((_, e) => { ($(e).attr("class") || "").split(/\s+/).filter(Boolean).forEach((c) => { clases[c] = (clases[c] || 0) + 1; }); });
+  const lineas = $("body").text().split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean).map(tapar);
+  const unicas = lineas.filter((l, i) => l !== lineas[i - 1]);
+  return { imgs, clases, lineas: unicas };
+}

@@ -62,7 +62,7 @@ function nombreEquipo(state, teamId) {
 }
 
 async function escribirResumen() {
-  if (!process.env.GITHUB_ACTIONS) return;
+  if (!process.env.GITHUB_ACTIONS || !resumen.length) return;
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${resumen.join("\n")}\n`);
   // También como aviso del trabajo, para poder leerlo desde la API de GitHub
   const texto = resumen.join("\n").replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
@@ -397,8 +397,26 @@ async function diagnostico() {
   }
 }
 
+async function diagnosticoFicha() {
+  const { estructuraFicha } = await import("./ffib.mjs");
+  const acta = process.env.ACTA || "767403";
+  const r = await estructuraFicha(acta);
+  const bloques = [
+    `## Ficha ${acta}: imágenes\n${Object.entries(r.imgs).map(([k, v]) => `${k}×${v}`).join(", ")}`,
+    `## Clases\n${Object.entries(r.clases).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([k, v]) => `${k}×${v}`).join(", ")}`,
+    `## Texto (nombres tapados)\n${r.lineas.join("\n")}`
+  ];
+  for (const b of bloques) {
+    for (let i = 0; i < b.length && i < 30000; i += 3500) {
+      const trozo = b.slice(i, i + 3500).replace(/%/g, "%25").replace(/\n/g, "%0A");
+      console.log(`::notice title=Ficha::${trozo}`);
+    }
+  }
+}
+
 try {
-  if (MODO === "diagnostico") await diagnostico();
+  if (MODO === "ficha") await diagnosticoFicha();
+  else if (MODO === "diagnostico") await diagnostico();
   else if (MODO === "comprobar") await comprobar((await leerEstado()).state);
   else await importar();
 } catch (error) {
