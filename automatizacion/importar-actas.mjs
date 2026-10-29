@@ -61,6 +61,8 @@ async function comprobar(state) {
   log("| Equipo | Actas | Leídas | Partidos idénticos | Jugadores con diferencias | Nombres sin emparejar |");
   log("|---|---|---|---|---|---|");
   let totalDif = 0;
+  let totalLeidas = 0;
+  const errores = [];
   for (const team of state.teams) {
     if (isQuarterTeam(team.id)) continue; // minutos por cuartos: los anota el entrenador
     const players = state.players.filter((p) => p.teamId === team.id);
@@ -94,15 +96,22 @@ async function comprobar(state) {
         }
         if (iguales) identicos++;
       } catch (error) {
-        console.log(`  ${team.id} J${m.round}: ${error.message}`);
+        errores.push(`${team.name} J${m.round}: ${error.message}`);
       }
     }
     totalDif += dif;
+    totalLeidas += leidas;
     const detalle = Object.keys(campos).length ? ` (${Object.entries(campos).map(([k, v]) => `${k}: ${v}`).join(", ")})` : "";
     log(`| ${team.name} | ${matches.length} | ${leidas} | ${identicos} | ${dif}${detalle} | ${sinEmparejar} |`);
   }
   log("");
-  log(totalDif ? "Hay diferencias: pueden ser correcciones hechas a mano en la app. Revisar antes de activar." : "Todo coincide con lo guardado en la app.");
+  if (errores.length) {
+    log(`Actas que no se han podido leer: ${errores.length}`);
+    errores.slice(0, 8).forEach((e) => log(`- ${e}`));
+    log("");
+  }
+  if (!totalLeidas) log("No se ha podido leer ninguna acta: hay que revisar el lector.");
+  else log(totalDif ? "Hay diferencias: pueden ser correcciones hechas a mano en la app." : "Todo coincide con lo guardado en la app.");
 }
 
 // ------------------------------------------------------------------ buscar en la FFIB
