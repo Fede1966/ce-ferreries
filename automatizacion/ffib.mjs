@@ -192,5 +192,9 @@ export async function estructuraFicha(acta) {
   });
   const lineas = $("body").text().split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean).map(tapar);
   const unicas = lineas.filter((l, i) => l !== lineas[i - 1]);
-  return { imgs, clases, lineas: unicas, tablas };
+  const leyenda = $(".lgol").toArray().map((e) => `${tapar($(e).text().replace(/\s+/g, " ").trim())}: ${$(e).find("i, img").toArray().map((i) => $(i).attr("class") || $(i).attr("src")).join(",")} [${$(e).attr("class")}]`);
+  const golesIconos = $("table").eq(1).find("tr").toArray().map((tr) => $(tr).find("i").toArray().map((i) => $(i).attr("class")).join(" + ") + " :: " + $(tr).find("td").first().html().replace(/\s+/g, " ").slice(0, 200));
+  const cabecera = $("table").first().find("td").toArray().map((td) => $(td).html().replace(/\s+/g, " ").replace(/<img[^>]*>/g, "<img>").slice(0, 160));
+  const pie = $("body").text().replace(/\s+/g, " ").match(/.{0,80}Temporada \d{4}-\d{4}.{0,80}/)?.[0] || "";
+  return { imgs, clases, lineas: unicas, tablas: [...leyenda, ...golesIconos, ...cabecera, tapar(pie)] };
 }
