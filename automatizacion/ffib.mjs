@@ -25,14 +25,14 @@ function guardarCookies(res) {
   }
 }
 
-async function pedirUnaVez(url) {
+async function pedirUnaVez(url, extra = {}) {
   const espera = ultimaPeticion + PAUSA_MS - Date.now();
   if (espera > 0) await new Promise((r) => setTimeout(r, espera));
   ultimaPeticion = Date.now();
   peticiones++;
   let actual = url;
   for (let salto = 0; salto < 5; salto++) {
-    const headers = { "User-Agent": USER_AGENT, "Accept-Language": "es-ES,es;q=0.9" };
+    const headers = { "User-Agent": USER_AGENT, "Accept-Language": "es-ES,es;q=0.9", ...extra };
     if (cookies.size) headers.Cookie = [...cookies].map(([k, v]) => `${k}=${v}`).join("; ");
     const res = await fetch(actual, { headers, redirect: "manual" });
     guardarCookies(res);
@@ -46,11 +46,11 @@ async function pedirUnaVez(url) {
   throw new Error("FFIB: demasiadas redirecciones");
 }
 
-async function pedir(url) {
+async function pedir(url, extra = {}) {
   let ultimoError;
   for (let intento = 0; intento < 3; intento++) {
     try {
-      return await pedirUnaVez(url);
+      return await pedirUnaVez(url, extra);
     } catch (error) {
       ultimoError = error;
       await new Promise((r) => setTimeout(r, 4000 * (intento + 1)));
@@ -137,11 +137,15 @@ export async function buscarGrupos(comp, temporada) {
 }
 
 export async function descargarActa(acta) {
-  const p = new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta, NPcd_Pdf: "1" });
-  if (!cookies.size) await html(`${BASE}/NFG_CmpPartido?${new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta })}`);
-  const res = await pedir(`${BASE}/NFG_CmpPartido?${p}`);
+  const ficha = `${BASE}/NFG_CmpPartido?${new URLSearchParams({ cod_primaria: "1000110", CodActa: acta, cod_acta: acta })}`;
+  // Como en el navegador: primero la ficha del partido y después su PDF
+  await html(ficha);
+  const res = await pedir(`${ficha}&NPcd_Pdf=1`, { Referer: ficha });
   const bytes = new Uint8Array(await res.arrayBuffer());
-  if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") throw new Error("La FFIB no ha devuelto un PDF");
+  if (String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
+    const inicio = new TextDecoder("windows-1252").decode(bytes.slice(0, 400)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
+    throw new Error(`La FFIB no ha devuelto un PDF (${res.headers.get("content-type") || "sin tipo"}, ${bytes.length} bytes: «${inicio}»)`);
+  }
   return bytes;
 }
 
