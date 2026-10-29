@@ -155,8 +155,9 @@ export async function leerJornadaCruda(comp, temporada, jornada) {
   const actas = $('a[href*="CodActa"], a[href*="codacta"], a[href*="cod_acta"]').length;
   const enlaces = new Set($("a[href]").toArray().map((a) => ($(a).attr("href") || "").replace(/\?.*/, "")).filter((h) => /NFG_/i.test(h)));
   const ferreries = normalizeSearchText($("body").text()).includes("ferreries");
+  const nombres = [...new Set(tablas.map((t) => /[^\d]{0,22}ferreries[^\d]{0,8}/i.exec(t)?.[0]).filter(Boolean).map((x) => x.trim()))];
   return {
     grupos,
-    resumen: `${texto.length} car. «${texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)}», grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
+    resumen: `${texto.length} car. «${texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)}», grupos ${grupos.length}, filas con fecha ${conFecha}, enlaces de acta ${actas}, Ferreries ${ferreries ? "sí" : "no"} ${nombres.map((n) => `[${n}]`).join(" ")}, páginas enlazadas: ${[...enlaces].slice(0, 6).join(" ")}`
   };
 }

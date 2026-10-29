@@ -372,7 +372,7 @@ async function diagnostico() {
     for (const comp of comps.filter((c) => !c.grupo)) {
       const r = await leerJornadaCruda({ ...comp, grupo: "" }, config.temporada, 0).catch((e) => ({ resumen: e.message, grupos: [] }));
       log(`- ${teamId} · ${comp.nombre}: ${r.resumen}`);
-      for (const g of r.grupos.slice(0, 8)) {
+      for (const g of r.grupos.filter((x) => x.valor && x.valor !== "0").slice(0, 8)) {
         const rg = await leerJornadaCruda({ ...comp, grupo: g.valor }, config.temporada, 1).catch((e) => ({ resumen: e.message }));
         log(`  - grupo ${g.valor} «${g.texto}»: ${rg.resumen}`);
       }
