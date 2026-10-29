@@ -774,8 +774,8 @@ function renderBulkPlan(plan) {
   document.querySelector("#bulk-acta-status").textContent = plan.matches.length ? "" : "No hay ningún acta válida para importar.";
 }
 
-document.querySelector("#close-bulk-acta").addEventListener("click", () => bulkActaDialog.close());
-document.querySelector("#cancel-bulk-acta").addEventListener("click", () => bulkActaDialog.close());
+document.querySelector("#close-bulk-acta").addEventListener("click", () => { pendingImportActas = []; bulkActaDialog.close(); });
+document.querySelector("#cancel-bulk-acta").addEventListener("click", () => { pendingImportActas = []; bulkActaDialog.close(); });
 
 document.querySelector("#confirm-bulk-acta").addEventListener("click", async () => {
   if (!bulkPlan) return;
@@ -856,6 +856,10 @@ document.querySelector("#confirm-bulk-acta").addEventListener("click", async () 
       }));
     matchItem.teamStats = { ...normalizeTeamMatchStats(matchItem.teamStats), yellowCards, redCards };
     markMatchUpdated(matchItem);
+  }
+  if (pendingImportActas.length) {
+    removePendingImports(pendingImportActas);
+    pendingImportActas = [];
   }
   saveState();
   bulkActaDialog.close();
@@ -1890,6 +1894,16 @@ async function pushRemoteState(throwOnError = false) {
   }
 }
 
+// Momento (lastModifiedAt) de la versión de la base de datos que tiene esta pestaña.
+let knownRemoteModifiedAt = null;
+
+async function fetchRemoteNewSeasonModifiedAt() {
+  const rows = await supabaseRequest(
+    `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=lineup->__seasonState->lastModifiedAt`
+  );
+  return Number(rows?.[0]?.lastModifiedAt) || 0;
+}
+
 async function pullNewSeasonRemoteState() {
   try {
     isPullingRemote = true;
@@ -1897,6 +1911,7 @@ async function pullNewSeasonRemoteState() {
       `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=*`
     );
     const remoteState = rows?.[0]?.lineup?.__seasonState;
+    if (remoteState) knownRemoteModifiedAt = Number(remoteState.lastModifiedAt) || 0;
     if (!remoteState) {
       isPullingRemote = false;
       await pushNewSeasonRemoteState();
@@ -1935,6 +1950,17 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
   if (!hasSupabaseConfig() || !canEdit()) { console.warn("[Sync] pushNewSeasonRemoteState omitido: no config o no autenticado"); return; }
   try {
     setSyncStatus("syncing", "Guardando...");
+    if (knownRemoteModifiedAt !== null) {
+      const remoteModifiedAt = await fetchRemoteNewSeasonModifiedAt();
+      if (remoteModifiedAt > knownRemoteModifiedAt) {
+        // Alguien guardó después de que cargáramos (otra pestaña o la importación automática de actas):
+        // no se sobrescribe para no borrar sus cambios.
+        setSyncStatus("error", "Hay cambios nuevos guardados desde otro sitio. Recarga la página antes de seguir editando.");
+        console.warn("[Sync] Guardado cancelado: la base de datos tiene una versión más reciente.");
+        if (throwOnError) throw new Error("Versión remota más reciente");
+        return;
+      }
+    }
     console.log("[Sync] Guardando estado en Supabase...");
     await supabaseUpsert(
       "matches",
@@ -1959,6 +1985,7 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
       }],
       "match_id"
     );
+    knownRemoteModifiedAt = Number(state.lastModifiedAt) || knownRemoteModifiedAt;
     setSyncStatus("ok", "✓ Guardado");
     console.log("[Sync] Estado guardado en Supabase ✓");
   } catch (error) {
@@ -3462,6 +3489,84 @@ function renderPlayerRating(key, label, value) {
   `;
 }
 
+// ---------- Actas importadas automáticamente (GitHub Actions) ----------
+let pendingImportActas = [];
+
+function teamPendingImports() {
+  return (state.autoImport?.pending || []).filter((item) => item.teamId === state.activeTeamId);
+}
+
+function autoImportPanelHtml() {
+  const lastRun = state.autoImport?.lastRun;
+  const pending = teamPendingImports();
+  if (!lastRun && !pending.length) return "";
+  const added = (lastRun?.added || []).filter((item) => item.teamId === state.activeTeamId);
+  const when = lastRun?.at ? new Date(lastRun.at).toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "";
+  const pendingRows = pending.map((item) => `
+    <li>
+      <span><strong>${item.competition === "cup" ? "Copa " : ""}J${escapeHtml(String(item.round))}</strong>${item.opponent ? ` · ${escapeHtml(item.opponent)}` : ""}${item.score ? ` · ${escapeHtml(item.score)}` : ""}<br><small>${escapeHtml(item.reason || "")}</small></span>
+      ${canEdit() ? `<button class="secondary-button" type="button" data-discard-pending="${escapeAttr(String(item.acta))}">Descartar</button>` : ""}
+    </li>`).join("");
+  return `
+    <section class="auto-import-panel ${pending.length ? "has-pending" : ""}">
+      <div class="auto-import-head">
+        <div>
+          <p class="eyebrow">Actas de la FFIB</p>
+          <strong>${when ? `Última importación automática: ${escapeHtml(when)}` : "Importación automática"}</strong>
+          ${lastRun ? `<p class="meta">${added.length ? `${added.length} partido(s) añadido(s) a este equipo.` : "Sin partidos nuevos para este equipo."}</p>` : ""}
+        </div>
+        ${pending.length && canEdit() ? `<button class="primary-button" type="button" id="review-pending-actas">Revisar ${pending.length === 1 ? "el acta pendiente" : `las ${pending.length} actas pendientes`}</button>` : ""}
+      </div>
+      ${pending.length ? `<ul class="auto-import-pending">${pendingRows}</ul>
+        <p class="meta">Estas actas no se han importado solas porque había alguna duda. Al revisarlas se abre la importación de siempre y decides tú.</p>` : ""}
+    </section>`;
+}
+
+function bindAutoImportPanel() {
+  views.matches.querySelector("#review-pending-actas")?.addEventListener("click", reviewPendingActas);
+  views.matches.querySelectorAll("[data-discard-pending]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!confirm("¿Descartar esta acta pendiente? No se importará.")) return;
+      removePendingImports([button.dataset.discardPending]);
+      render();
+    });
+  });
+}
+
+function removePendingImports(actas) {
+  if (!state.autoImport?.pending) return;
+  const ids = new Set(actas.map(String));
+  state.autoImport.pending = state.autoImport.pending.filter((item) => !ids.has(String(item.acta)));
+  saveState();
+}
+
+async function reviewPendingActas() {
+  const pending = teamPendingImports().filter((item) => item.fileUrl);
+  if (!pending.length) {
+    alert("No hay PDF guardado para estas actas. Descárgalas de la FFIB y usa «Importar varias actas».");
+    return;
+  }
+  const transfer = new DataTransfer();
+  const loaded = [];
+  for (const item of pending) {
+    try {
+      const response = await fetch(item.fileUrl);
+      if (!response.ok) throw new Error(String(response.status));
+      transfer.items.add(new File([await response.blob()], item.fileName || `acta-${item.acta}.pdf`, { type: "application/pdf" }));
+      loaded.push(String(item.acta));
+    } catch (error) {
+      console.error("No se pudo cargar el acta pendiente", error);
+    }
+  }
+  if (!loaded.length) {
+    alert("No se han podido cargar las actas pendientes. Inténtalo más tarde.");
+    return;
+  }
+  pendingImportActas = loaded;
+  bulkActaInput.files = transfer.files;
+  bulkActaInput.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function bindMatchesTabs() {
   views.matches.querySelectorAll("[data-matches-tab]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -3498,6 +3603,7 @@ function renderMatches() {
       <strong>${escapeHtml(currentTeam().name)}</strong>
     </div>
     ${tabs}
+    ${autoImportPanelHtml()}
     <div class="match-grid">
       ${matches
         .slice()
@@ -3521,6 +3627,7 @@ function renderMatches() {
   `;
 
   bindMatchesTabs();
+  bindAutoImportPanel();
   views.matches.querySelectorAll("[data-open-match]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedMatchId = button.dataset.openMatch;

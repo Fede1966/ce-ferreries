@@ -1,0 +1,46 @@
+# Importa cada semana en ceferreries.app las actas de la FFIB de los partidos ya jugados.
+# Horas en UTC: domingo 21:00 y lunes 09:00 = 22:00 y 10:00 en invierno (23:00 y 11:00 en verano).
+# La pasada del lunes solo recoge lo que faltara el domingo (actas publicadas tarde, aplazados).
+name: Actas FFIB
+
+on:
+  schedule:
+    - cron: "0 21 * * 0"
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "comprobar = releer actas ya guardadas · prueba = buscar en la FFIB sin guardar · real = importar y guardar"
+        type: choice
+        options: [prueba, real, comprobar]
+        default: prueba
+
+concurrency:
+  group: actas-ffib
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ceferreries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: automatizacion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: automatizacion/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Importar actas
+        run: node importar-actas.mjs
+        env:
+          MODO: ${{ github.event_name == 'schedule' && 'real' || inputs.modo }}
+          FERRERIES_EMAIL: ${{ secrets.FERRERIES_EMAIL }}
+          FERRERIES_PASSWORD: ${{ secrets.FERRERIES_PASSWORD }}
+          ACTAS_EXCLUIDOS: ${{ secrets.ACTAS_EXCLUIDOS }}

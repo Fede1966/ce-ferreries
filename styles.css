@@ -3947,3 +3947,62 @@ button:focus-visible {
   #technical-app .compare-table th:first-child { width: 38%; padding-inline: 8px; font-size: .7rem; }
   #technical-app .compare-table thead th { font-size: .66rem; overflow-wrap: anywhere; }
 }
+
+/* Aviso de actas importadas automáticamente */
+.auto-import-panel {
+  margin: 0 0 16px;
+  padding: 16px 20px;
+  border: 1px solid #e3e7ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.auto-import-panel.has-pending {
+  border-color: #f0d48a;
+  background: #fffaf0;
+}
+
+.auto-import-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auto-import-head .eyebrow {
+  margin-bottom: 2px;
+}
+
+.auto-import-head .meta {
+  margin: 4px 0 0;
+}
+
+.auto-import-pending {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.auto-import-pending li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #fff;
+  border: 1px solid #efe3c2;
+}
+
+.auto-import-pending small {
+  color: var(--muted);
+}
+
+#technical-app .toolbar-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
