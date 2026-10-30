@@ -2679,10 +2679,32 @@ function teamRelevance(item) {
   return priority === -1 ? TEAM_RELEVANCE.length : priority;
 }
 
+// Algunos nombres de equipo se guardaron con la tilde rota ("Alev\uFFFDn"). Se corrigen en el equipo y en
+// sus partidos a la vez, para que la app siga sabiendo si jugamos de local o de visitante.
+// No cambia lastModifiedAt: la corrección llega a la base de datos con el siguiente guardado normal.
+const BROKEN_ACCENT_WORDS = [["Alev\uFFFDn", "Alevín"], ["Benjam\uFFFDn", "Benjamín"], ["benjam\uFFFDn", "benjamín"], ["Divisi\uFFFDn", "División"]];
+
+function repairTeamNameAccents() {
+  let changed = false;
+  (state.teams || []).forEach((team) => {
+    if (!String(team.name || "").includes("\uFFFD")) return;
+    const fixed = BROKEN_ACCENT_WORDS.reduce((name, [broken, good]) => name.split(broken).join(good), team.name);
+    if (fixed === team.name) return;
+    (state.matches || []).forEach((matchItem) => {
+      if (matchItem.home === team.name) matchItem.home = fixed;
+      if (matchItem.away === team.name) matchItem.away = fixed;
+    });
+    team.name = fixed;
+    changed = true;
+  });
+  return changed;
+}
+
 function repairMissingTeams() {
   const before = JSON.stringify(state.teams || []);
+  const accentsRepaired = repairTeamNameAccents();
   syncTeamsFromData();
-  if (JSON.stringify(state.teams || []) !== before) {
+  if (accentsRepaired || JSON.stringify(state.teams || []) !== before) {
     localStorage.setItem(SEASON_STORAGE_KEYS[activeSeason], JSON.stringify(state));
   }
 }
