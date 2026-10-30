@@ -71,6 +71,14 @@ async function escribirResumen() {
 
 // ------------------------------------------------------------------ comprobar
 async function comprobar(state) {
+  log(`## Nombres de equipos guardados`);
+  for (const team of state.teams) {
+    const raros = [...team.name].filter((c) => c.charCodeAt(0) > 127).map((c) => `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`);
+    const usos = state.matches.filter((m) => m.home === team.name || m.away === team.name).length;
+    const delEquipo = state.matches.filter((m) => m.teamId === team.id).length;
+    log(`- ${team.id}: «${team.name}» ${raros.length ? `(${raros.join(" ")})` : ""} · partidos ${delEquipo}, con este nombre ${usos}`);
+  }
+  log("");
   log(`## Comprobación del lector (${HOY})`);
   log("Relee las actas ya guardadas en la app y compara con lo que hay guardado. No toca la FFIB ni guarda nada.");
   log("");
