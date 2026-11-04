@@ -3511,6 +3511,206 @@ function renderPlayerRating(key, label, value) {
   `;
 }
 
+// ---------- Calendario y próximo partido (datos de la FFIB que guarda la tarea semanal) ----------
+// state.fixtures[teamId] = { updatedAt, competitions: [{ name, kind: "league"|"cup", jornadas: [
+//   { round, date: "aaaa-mm-dd" (fecha de la jornada), home, away,
+//     exact?: { date, time, campo, superficie } (día, hora y campo concretos, cuando la FFIB ya los tiene) }] }] }
+
+// La usa la tarea semanal desde el navegador: guarda el calendario de un equipo.
+function saveFfibFixtures(teamId, data) {
+  if (!state.teams.some((team) => team.id === teamId)) throw new Error(`Equipo desconocido: ${teamId}`);
+  const competitions = (data?.competitions || []).map((comp) => ({
+    name: String(comp.name || ""),
+    kind: comp.kind === "cup" ? "cup" : "league",
+    jornadas: (comp.jornadas || [])
+      .filter((j) => Number(j.round) > 0 && j.home && j.away)
+      .map((j) => ({
+        round: Number(j.round),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(j.date || "") ? j.date : "",
+        home: String(j.home).trim(),
+        away: String(j.away).trim(),
+        ...(j.exact ? { exact: {
+          date: /^\d{4}-\d{2}-\d{2}$/.test(j.exact.date || "") ? j.exact.date : "",
+          time: /^\d{1,2}:\d{2}$/.test(j.exact.time || "") ? j.exact.time : "",
+          campo: String(j.exact.campo || "").trim(),
+          superficie: String(j.exact.superficie || "").trim()
+        } } : {})
+      }))
+      .sort((a, b) => a.round - b.round)
+  }));
+  state.fixtures = { ...(state.fixtures || {}), [teamId]: { updatedAt: new Date().toISOString(), competitions } };
+  saveState();
+  if (state.activeView === "matches") render();
+  return { teamId, competitions: competitions.map((c) => ({ name: c.name, jornadas: c.jornadas.length })) };
+}
+
+// "PEÑA DEPORTIVA \"A\"" → "Peña Deportiva A"; "SANT BARTOMEU DE FERRERIES" → "Sant Bartomeu de Ferreries"
+function prettyFfibName(name) {
+  return titleCaseTeam(String(name || "").replace(/"/g, " ").replace(/\s+/g, " ").trim())
+    .replace(/(?<=\s)(De|Del)(?=\s)/g, (w) => w.toLocaleLowerCase("es"))
+    .replace(/\s([a-z])$/, (m, letter) => ` ${letter.toUpperCase()}`);
+}
+
+function isOwnFixtureName(name) {
+  return normalizeSearchText(name).includes("ferreries");
+}
+
+function fixtureOwnSide(j) {
+  if (isOwnFixtureName(j.home) && !isOwnFixtureName(j.away)) return "home";
+  if (isOwnFixtureName(j.away) && !isOwnFixtureName(j.home)) return "away";
+  return "home";
+}
+
+function todayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function teamFixtures() {
+  const data = state.fixtures?.[state.activeTeamId];
+  if (!data) return [];
+  return data.competitions.flatMap((comp) => comp.jornadas.map((j) => {
+    const ownSide = fixtureOwnSide(j);
+    const appMatch = activeMatches().find((m) => (m.competition || "league") === comp.kind && Number(m.round) === j.round);
+    return {
+      ...j, compName: comp.name, kind: comp.kind, ownSide,
+      rival: prettyFfibName(ownSide === "home" ? j.away : j.home),
+      when: j.exact?.date || j.date,
+      appMatch
+    };
+  }));
+}
+
+function nextFixture() {
+  const today = todayIso();
+  return teamFixtures()
+    .filter((f) => f.when && f.when >= today && f.appMatch?.status !== "Jugado")
+    .sort((a, b) => a.when.localeCompare(b.when) || String(a.exact?.time || "").localeCompare(String(b.exact?.time || "")))[0];
+}
+
+function fixtureDateLabel(f, long = false) {
+  if (!f.when) return "Fecha por confirmar";
+  const date = new Date(`${f.when}T00:00:00`);
+  const label = new Intl.DateTimeFormat("es-ES", long
+    ? { weekday: "long", day: "numeric", month: "long" }
+    : { weekday: "short", day: "2-digit", month: "2-digit" }).format(date);
+  return f.exact?.date ? label : `${long ? "Semana del " : ""}${label}${long ? "" : " (jornada)"}`;
+}
+
+function daysUntil(iso) {
+  return Math.round((new Date(`${iso}T00:00:00`) - new Date(`${todayIso()}T00:00:00`)) / 86400000);
+}
+
+function nextMatchCardHtml() {
+  const f = nextFixture();
+  if (!f) return "";
+  const days = daysUntil(f.when);
+  const countdown = days === 0 ? "Hoy" : days === 1 ? "Mañana" : `En ${days} días`;
+  const prepared = f.appMatch && f.appMatch.status !== "Jugado";
+  return `
+    <section class="next-match-card">
+      <div class="next-match-main">
+        <p class="eyebrow">Próximo partido · ${escapeHtml(f.kind === "cup" ? "Copa" : "Liga")} · Jornada ${f.round}</p>
+        <h3>${escapeHtml(f.ownSide === "home" ? `${currentTeam().name} – ${f.rival}` : `${f.rival} – ${currentTeam().name}`)}</h3>
+        <p class="next-match-when">
+          <strong>${escapeHtml(fixtureDateLabel(f, true))}</strong>
+          · ${f.exact?.time ? `${escapeHtml(f.exact.time)} h` : "Hora por confirmar"}
+          ${f.exact?.campo ? ` · ${escapeHtml(prettyFfibName(f.exact.campo))}` : ""}
+        </p>
+        <p class="meta">${f.ownSide === "home" ? "En casa" : "Fuera"}${f.exact?.superficie ? ` · ${escapeHtml(f.exact.superficie.toLocaleLowerCase("es"))}` : ""}</p>
+      </div>
+      <div class="next-match-side">
+        <span class="next-match-countdown">${countdown}</span>
+        ${prepared
+          ? `<button class="primary-button" type="button" data-open-match="${escapeAttr(f.appMatch.id)}">Abrir partido</button>`
+          : canEdit() ? `<button class="primary-button" type="button" data-prepare-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Preparar partido</button>` : ""}
+      </div>
+    </section>`;
+}
+
+function calendarHtml() {
+  const data = state.fixtures?.[state.activeTeamId];
+  if (!data) {
+    return `<div class="empty-state">El calendario de este equipo todavía no se ha cargado. Se descarga de la FFIB con las actas, el domingo por la noche.</div>`;
+  }
+  const today = todayIso();
+  const next = nextFixture();
+  const updated = new Date(data.updatedAt).toLocaleString("es-ES", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  const byComp = data.competitions.filter((c) => c.jornadas.length);
+  return `
+    ${byComp.map((comp) => {
+      const rows = teamFixtures().filter((f) => f.compName === comp.name && f.kind === comp.kind);
+      return `
+      <section class="panel calendar-panel">
+        <h3>${escapeHtml(comp.name || (comp.kind === "cup" ? "Copa" : "Liga"))}</h3>
+        <div class="table-panel"><div class="data-table-scroll"><table class="data-table calendar-table">
+          <thead><tr><th>J</th><th>Fecha</th><th>Rival</th><th></th><th>Resultado</th><th></th></tr></thead>
+          <tbody>${rows.map((f) => {
+            const played = f.appMatch?.status === "Jugado";
+            const result = played ? ownResult({ ...f.appMatch, ...parseScoreToGoals(f.appMatch.score) }) : null;
+            const isNext = next && next.kind === f.kind && next.round === f.round;
+            const overdue = !played && f.when && f.when < today;
+            const label = played ? "" : isNext ? "Próximo" : overdue ? "Pendiente" : "";
+            return `<tr class="${isNext ? "calendar-next" : ""} ${played ? "" : "calendar-future"}">
+              <td><strong>${f.round}</strong></td>
+              <td>${escapeHtml(f.exact?.date ? formatDate(f.exact.date) : f.when ? formatDate(f.when) : "—")}${f.exact?.time ? ` · ${escapeHtml(f.exact.time)}` : ""}</td>
+              <td>${escapeHtml(f.rival)}</td>
+              <td><span class="calendar-side">${f.ownSide === "home" ? "Casa" : "Fuera"}</span></td>
+              <td>${result ? `<span class="result ${result.letter === "E" ? "draw" : result.letter === "P" ? "loss" : ""}">${result.letter}</span> ${result.own}–${result.other}` : label ? `<span class="calendar-state ${overdue ? "overdue" : ""}">${label}</span>` : "—"}</td>
+              <td>${f.appMatch ? `<button class="secondary-button" type="button" data-open-match="${escapeAttr(f.appMatch.id)}">Abrir</button>` : !played && canEdit() && f.when >= today ? `<button class="secondary-button" type="button" data-prepare-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Preparar</button>` : ""}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div></div>
+      </section>`;
+    }).join("")}
+    <p class="meta">Calendario de la FFIB, actualizado el ${escapeHtml(updated)}. «Pendiente»: su fecha ya pasó y aún no hay acta (aplazado o por importar).</p>`;
+}
+
+function parseScoreToGoals(score) {
+  const parsed = parseScore(score);
+  return parsed ? { homeGoals: parsed.home, awayGoals: parsed.away } : { homeGoals: 0, awayGoals: 0 };
+}
+
+function prepareFixtureMatch(key) {
+  const [kind, round] = key.split("|");
+  const f = teamFixtures().find((item) => item.kind === kind && item.round === Number(round));
+  if (!f) return;
+  if (f.appMatch) {
+    state.selectedMatchId = f.appMatch.id;
+    setView("detail");
+    return;
+  }
+  const own = currentTeam().name;
+  const matchItem = {
+    id: crypto.randomUUID(), updatedAt: Date.now(), teamId: state.activeTeamId, competition: f.kind, round: f.round,
+    date: f.exact?.date || f.date || "", time: f.exact?.time || "",
+    home: f.ownSide === "home" ? own : f.rival, away: f.ownSide === "away" ? own : f.rival,
+    status: "Preparación", score: "", teamStats: normalizeTeamMatchStats(), notes: f.exact?.campo ? `Campo: ${prettyFfibName(f.exact.campo)}` : "",
+    videoUrl: "", actaDuration: defaultActaDuration(state.activeTeamId), actaPlayers: {}, actaFileUrl: "", actaFilePath: "",
+    actaFileName: "", actaFileType: "", lineupSheets: null, lineup: {}, formation: DEFAULT_FORMATION, plan: emptyPlan(),
+    preparedFromFixture: true
+  };
+  state.matches.push(matchItem);
+  state.selectedMatchId = matchItem.id;
+  state.activeDetailTab = "plan";
+  saveState();
+  setView("detail");
+}
+
+function bindFixtureActions(bindOpenButtons = false) {
+  views.matches.querySelectorAll("[data-prepare-fixture]").forEach((button) => {
+    button.addEventListener("click", () => prepareFixtureMatch(button.dataset.prepareFixture));
+  });
+  if (!bindOpenButtons) return; // en la pestaña Partidos ya se enlazan todos los «Abrir»
+  views.matches.querySelectorAll(".next-match-card [data-open-match], .calendar-panel [data-open-match]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedMatchId = button.dataset.openMatch;
+      state.activeDetailTab = "plan";
+      setView("detail");
+    });
+  });
+}
+
 // ---------- Actas importadas automáticamente (GitHub Actions) ----------
 let pendingImportActas = [];
 
@@ -3605,8 +3805,24 @@ function renderMatches() {
   const tabs = `
     <div class="detail-tabs matches-subtabs">
       <button class="detail-tab ${matchesTab === "matches" ? "active" : ""}" data-matches-tab="matches" type="button">Partidos</button>
+      <button class="detail-tab ${matchesTab === "calendar" ? "active" : ""}" data-matches-tab="calendar" type="button">Calendario</button>
       <button class="detail-tab ${matchesTab === "standings" ? "active" : ""}" data-matches-tab="standings" type="button">Clasificación</button>
     </div>`;
+  if (matchesTab === "calendar") {
+    views.matches.innerHTML = `
+      <div class="active-team-context">
+        <span class="eyebrow">Equipo seleccionado</span>
+        <strong>${escapeHtml(currentTeam().name)}</strong>
+      </div>
+      ${tabs}
+      ${nextMatchCardHtml()}
+      ${calendarHtml()}
+    `;
+    bindMatchesTabs();
+    bindFixtureActions(true);
+    applyAccessMode();
+    return;
+  }
   if (matchesTab === "standings") {
     views.matches.innerHTML = `
       <div class="active-team-context">
@@ -3625,6 +3841,7 @@ function renderMatches() {
       <strong>${escapeHtml(currentTeam().name)}</strong>
     </div>
     ${tabs}
+    ${nextMatchCardHtml()}
     ${autoImportPanelHtml()}
     <div class="match-grid">
       ${matches
@@ -3650,6 +3867,7 @@ function renderMatches() {
 
   bindMatchesTabs();
   bindAutoImportPanel();
+  bindFixtureActions();
   views.matches.querySelectorAll("[data-open-match]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedMatchId = button.dataset.openMatch;
