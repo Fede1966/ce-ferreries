@@ -3572,9 +3572,11 @@ function teamFixtures() {
   return data.competitions.flatMap((comp) => comp.jornadas.map((j) => {
     const ownSide = fixtureOwnSide(j);
     const appMatch = activeMatches().find((m) => (m.competition || "league") === comp.kind && Number(m.round) === j.round);
+    const rivalName = ownSide === "home" ? j.away : j.home;
     return {
       ...j, compName: comp.name, kind: comp.kind, ownSide,
-      rival: prettyFfibName(ownSide === "home" ? j.away : j.home),
+      bye: /descansa/i.test(rivalName),
+      rival: prettyFfibName(rivalName),
       when: j.exact?.date || j.date,
       appMatch
     };
@@ -3584,7 +3586,7 @@ function teamFixtures() {
 function nextFixture() {
   const today = todayIso();
   return teamFixtures()
-    .filter((f) => f.when && f.when >= today && f.appMatch?.status !== "Jugado")
+    .filter((f) => !f.bye && f.when && f.when >= today && f.appMatch?.status !== "Jugado")
     .sort((a, b) => a.when.localeCompare(b.when) || String(a.exact?.time || "").localeCompare(String(b.exact?.time || "")))[0];
 }
 
@@ -3649,15 +3651,15 @@ function calendarHtml() {
             const played = f.appMatch?.status === "Jugado";
             const result = played ? ownResult({ ...f.appMatch, ...parseScoreToGoals(f.appMatch.score) }) : null;
             const isNext = next && next.kind === f.kind && next.round === f.round;
-            const overdue = !played && f.when && f.when < today;
+            const overdue = !played && !f.bye && f.when && f.when < today;
             const label = played ? "" : isNext ? "Próximo" : overdue ? "Pendiente" : "";
             return `<tr class="${isNext ? "calendar-next" : ""} ${played ? "" : "calendar-future"}">
               <td><strong>${f.round}</strong></td>
               <td>${escapeHtml(f.exact?.date ? formatDate(f.exact.date) : f.when ? formatDate(f.when) : "—")}${f.exact?.time ? ` · ${escapeHtml(f.exact.time)}` : ""}</td>
-              <td>${escapeHtml(f.rival)}</td>
-              <td><span class="calendar-side">${f.ownSide === "home" ? "Casa" : "Fuera"}</span></td>
+              <td>${f.bye ? `<em class="meta">Descansa</em>` : escapeHtml(f.rival)}</td>
+              <td><span class="calendar-side">${f.bye ? "" : f.ownSide === "home" ? "Casa" : "Fuera"}</span></td>
               <td>${result ? `<span class="result ${result.letter === "E" ? "draw" : result.letter === "P" ? "loss" : ""}">${result.letter}</span> ${result.own}–${result.other}` : label ? `<span class="calendar-state ${overdue ? "overdue" : ""}">${label}</span>` : "—"}</td>
-              <td>${f.appMatch ? `<button class="secondary-button" type="button" data-open-match="${escapeAttr(f.appMatch.id)}">Abrir</button>` : !played && canEdit() && f.when >= today ? `<button class="secondary-button" type="button" data-prepare-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Preparar</button>` : ""}</td>
+              <td>${f.appMatch ? `<button class="secondary-button" type="button" data-open-match="${escapeAttr(f.appMatch.id)}">Abrir</button>` : !played && !f.bye && canEdit() && f.when >= today ? `<button class="secondary-button" type="button" data-prepare-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Preparar</button>` : ""}</td>
             </tr>`;
           }).join("")}</tbody>
         </table></div></div>
