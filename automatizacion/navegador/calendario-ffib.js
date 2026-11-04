@@ -10,7 +10,7 @@ async function calendarioFerreries({ competicion, grupo, delegacion = "1", equip
     const texto = new TextDecoder(/utf-8/i.test(tipo) ? "utf-8" : "windows-1252").decode(buf);
     return new DOMParser().parseFromString(texto, "text/html");
   };
-  const norm = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const sufijo = norm(equipoFfib).replace(/^.*ferreries\s*/, "");
   const esNuestro = (nombre) => {
     const n = norm(nombre);
@@ -32,7 +32,6 @@ async function calendarioFerreries({ competicion, grupo, delegacion = "1", equip
     }
   }
 
-  const hoy = new Date().toISOString().slice(0, 10);
   const proximas = jornadas.filter((j) => j.date >= new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10)).slice(0, jornadasDetalle);
   for (const j of proximas) {
     await pausa();
@@ -52,6 +51,5 @@ async function calendarioFerreries({ competicion, grupo, delegacion = "1", equip
       superficie: limpio(campoLink?.parentElement?.querySelector("span")?.textContent)
     };
   }
-  void hoy;
   return jornadas;
 }
