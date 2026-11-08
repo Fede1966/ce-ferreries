@@ -41,7 +41,9 @@ function loadAuthSession() {
   try {
     const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY));
     if (!session?.access_token) return null;
-    if (session.expires_at && Number(session.expires_at) * 1000 <= Date.now()) {
+    // El acceso dura 1 hora, pero con el refresh_token se renueva sin volver a pedir la contraseña.
+    // Antes se borraba la sesión al cargar la página pasada esa hora: por eso «caducaba» sola.
+    if (session.expires_at && Number(session.expires_at) * 1000 <= Date.now() && !session.refresh_token) {
       localStorage.removeItem(AUTH_SESSION_KEY);
       return null;
     }
@@ -51,23 +53,61 @@ function loadAuthSession() {
   }
 }
 
+let refreshInFlight = null;
+
 async function refreshSession() {
   if (!authSession?.refresh_token) return;
+  // Una sola renovación a la vez (el refresh_token solo se puede usar una vez)
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    // Otra pestaña puede haberla renovado ya: usar la más reciente guardada
+    try {
+      const stored = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY));
+      if (stored?.access_token && Number(stored.expires_at || 0) > Number(authSession.expires_at || 0)) {
+        authSession = stored;
+        if (Number(stored.expires_at) * 1000 - Date.now() > 60_000) return;
+      }
+    } catch {
+      // seguir con la renovación
+    }
+    try {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: authSession.refresh_token })
+      });
+      if (!response.ok) {
+        // 400/401: la sesión ya no es válida (contraseña cambiada, cerrada en otro sitio...): hay que volver a entrar
+        if (response.status === 400 || response.status === 401) {
+          authSession = null;
+          localStorage.removeItem(AUTH_SESSION_KEY);
+          if (typeof updateLoginButtons === "function") updateLoginButtons();
+        }
+        return;
+      }
+      const result = await response.json();
+      if (!result.access_token) return;
+      authSession = result;
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(result));
+    } catch {
+      // sin conexión: se reintenta en la siguiente petición
+    }
+  })();
   try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: authSession.refresh_token })
-    });
-    if (!response.ok) return;
-    const result = await response.json();
-    if (!result.access_token) return;
-    authSession = result;
-    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(result));
-  } catch {
-    // silently ignore refresh errors
+    await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
+
+// Renovar al abrir la app si hace falta, y cada 45 minutos mientras esté abierta
+function sessionNeedsRefresh() {
+  const expiresAt = authSession?.expires_at ? Number(authSession.expires_at) * 1000 : Infinity;
+  return Boolean(authSession?.refresh_token) && expiresAt - Date.now() < 5 * 60_000;
+}
+setInterval(() => {
+  if (sessionNeedsRefresh()) refreshSession();
+}, 45 * 60_000);
 
 async function getValidAccessToken() {
   if (!authSession?.access_token) return getSupabaseAnonKey();
@@ -1438,6 +1478,13 @@ matchDialog.addEventListener("close", () => {
 render();
 if (!isLandingPage) {
   initializeSupabase();
+  // Si la hora de acceso ya pasó, renovarla al abrir (sin pedir la contraseña otra vez)
+  if (sessionNeedsRefresh()) {
+    refreshSession().then(() => {
+      updateLoginButtons();
+      render();
+    });
+  }
 }
 
 function player(id, name, number, birthdate, position, laterality = "Diestro", teamId = DEFAULT_TEAM_ID) {
