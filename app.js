@@ -4327,6 +4327,17 @@ function saveFfibStandings(teamId, data) {
   return { teamId, filas: rows.length, ferreries: rows.filter((row) => /ferreries/i.test(row.name)).map((row) => `${rows.indexOf(row) + 1}º ${row.points} pts`) };
 }
 
+// En grupos con Ferreries A y B, resaltar solo el equipo seleccionado
+function isOwnStandingsRow(name, team) {
+  if (name === team.name) return true;
+  const n = normalizeSearchText(name);
+  if (!n.includes("ferreries")) return false;
+  const isB = /-b$/.test(team.id) || /\sB$/.test(team.name);
+  const rowIsB = /\bferreries b\b/.test(n);
+  const rowIsA = /\bferreries a\b/.test(n);
+  return isB ? rowIsB : !rowIsB || rowIsA;
+}
+
 // Clasificación del equipo seleccionado. Se rellena desde la clasificación oficial de la FFIB
 // (team.standings = [{ name, played, won, drawn, lost, goalsFor, goalsAgainst, points }]).
 function standingsHtml() {
@@ -4363,7 +4374,7 @@ function standingsHtml() {
                   ${table
                     .map(
                       (row, index) => `
-                        <tr class="${row.name === team.name || /ferreries/i.test(row.name) ? "highlight-row" : ""}">
+                        <tr class="${isOwnStandingsRow(row.name, team) ? "highlight-row" : ""}">
                           <td><strong>${index + 1}</strong></td>
                           <td class="team-cell">${escapeHtml(row.name)}</td>
                           <td>${row.played}</td>

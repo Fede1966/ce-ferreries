@@ -13,8 +13,9 @@ async function clasificacionFfib({ competicion, grupo }) {
     if (!enlace) continue;
     const celdas = [...tr.children].map((c) => limpio(c.textContent));
     const i = celdas.findIndex((c) => c === limpio(enlace.textContent));
-    const n = celdas.slice(i + 1, i + 12).map(Number);
-    if (n.some((x) => Number.isNaN(x))) continue;
+    // Solo enteros: en fútbol 8 hay además una columna Pts/PJ con decimales ("3,0000")
+    const n = celdas.slice(i + 1).filter((c) => /^\d+$/.test(c)).slice(0, 11).map(Number);
+    if (n.length < 11) continue;
     const [points, hJ, hG, hE, hP, aJ, aG, aE, aP, goalsFor, goalsAgainst] = n;
     rows.push({ name: limpio(enlace.textContent), points, played: hJ + aJ, won: hG + aG, drawn: hE + aE, lost: hP + aP, goalsFor, goalsAgainst });
   }
