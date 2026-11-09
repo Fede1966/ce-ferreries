@@ -1476,6 +1476,7 @@ matchDialog.addEventListener("close", () => {
 });
 
 render();
+if (isLandingPage) loadLandingWeekMatches();
 if (!isLandingPage) {
   initializeSupabase();
   // Si la hora de acceso ya pasó, renovarla al abrir (sin pedir la contraseña otra vez)
@@ -3713,6 +3714,95 @@ function calendarHtml() {
       </section>`;
     }).join("")}
     <p class="meta">Calendario de la FFIB, actualizado el ${escapeHtml(updated)}. «Pendiente»: su fecha ya pasó y aún no hay acta (aplazado o por importar).</p>`;
+}
+
+// ---------- Portada: partidos de la semana de todos los equipos (de hoy al domingo) ----------
+function addDaysIso(iso, days) {
+  const date = new Date(`${iso}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function weekMatchesFrom(fixtures, teams, today = todayIso()) {
+  const end = addDaysIso(today, (7 - new Date(`${today}T12:00:00`).getDay()) % 7);
+  const list = [];
+  teams.forEach((team) => {
+    (fixtures?.[team.id]?.competitions || []).forEach((comp) => {
+      (comp.jornadas || []).forEach((j) => {
+        const ownSide = fixtureOwnSide(j);
+        const rivalName = ownSide === "home" ? j.away : j.home;
+        const when = j.exact?.date || j.date;
+        if (!when || when < today || when > end || /descansa/i.test(rivalName)) return;
+        list.push({ team, comp, round: j.round, ownSide, rival: prettyFfibName(rivalName), when, exact: j.exact || null });
+      });
+    });
+  });
+  return {
+    end,
+    list: list.sort((a, b) => (a.exact?.date ? 0 : 1) - (b.exact?.date ? 0 : 1)
+      || a.when.localeCompare(b.when)
+      || String(a.exact?.time || "99").localeCompare(String(b.exact?.time || "99"))
+      || teamRelevance(a.team) - teamRelevance(b.team))
+  };
+}
+
+function shortTeamName(name) {
+  const fixed = BROKEN_ACCENT_WORDS.reduce((text, [broken, good]) => text.split(broken).join(good), String(name || ""));
+  return fixed.replace(/^C\.?\s?E\.?\s+Ferreries\s+/i, "").trim() || fixed;
+}
+
+function landingWeekHtml(items) {
+  if (!items.length) return `<p class="landing-weekend-empty">Esta semana no hay partidos programados.</p>`;
+  const groups = [];
+  items.forEach((item) => {
+    const key = item.exact?.date ? item.when : "pending";
+    let group = groups.find((g) => g.key === key);
+    if (!group) groups.push(group = { key, items: [] });
+    group.items.push(item);
+  });
+  const dayLabel = (iso) => new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${iso}T12:00:00`));
+  return groups.map((group) => `
+    <section class="landing-weekend-day">
+      <h3>${escapeHtml(group.key === "pending" ? "Día y hora por confirmar" : dayLabel(group.key))}</h3>
+      <ul>${group.items.map((item) => `
+        <li>
+          <span class="landing-weekend-time">${item.exact?.time ? escapeHtml(item.exact.time) : "—"}</span>
+          <span class="landing-weekend-match">
+            <strong>${escapeHtml(shortTeamName(item.team.name))}</strong>
+            <span>${item.ownSide === "home" ? "vs" : "en"} ${escapeHtml(item.rival)}${item.comp.kind === "cup" ? " · Copa" : ""}</span>
+            ${item.exact?.campo ? `<small>${escapeHtml(prettyFfibName(item.exact.campo))}</small>` : group.key === "pending" ? `<small>Jornada ${item.round} · semana del ${escapeHtml(formatDate(item.when).slice(0, 5))}</small>` : ""}
+          </span>
+          <span class="landing-weekend-side ${item.ownSide}">${item.ownSide === "home" ? "Casa" : "Fuera"}</span>
+        </li>`).join("")}
+      </ul>
+    </section>`).join("");
+}
+
+async function loadLandingWeekMatches() {
+  const box = document.querySelector("#landing-weekend");
+  if (!box || !hasSupabaseConfig()) return;
+  try {
+    const rows = await supabaseRequest(
+      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams`
+    );
+    const fixtures = rows?.[0]?.fixtures;
+    const teams = rows?.[0]?.teams || [];
+    if (!fixtures || !teams.length) return;
+    const today = todayIso();
+    const { end, list } = weekMatchesFrom(fixtures, teams, today);
+    const fmt = (iso, opts) => new Intl.DateTimeFormat("es-ES", opts).format(new Date(`${iso}T12:00:00`));
+    document.querySelector("#landing-weekend-title").textContent = today === end
+      ? `Hoy, ${fmt(today, { day: "numeric", month: "long" })}`
+      : `Del ${fmt(today, { day: "numeric" })} al ${fmt(end, { day: "numeric", month: "long" })}`;
+    document.querySelector("#landing-weekend-list").innerHTML = landingWeekHtml(list);
+    const updated = Object.values(fixtures).map((f) => f?.updatedAt || "").sort().pop();
+    document.querySelector("#landing-weekend-foot").textContent = updated
+      ? `Horarios de la FFIB · actualizados el ${new Date(updated).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`
+      : "Horarios de la FFIB";
+    box.hidden = false;
+  } catch (error) {
+    console.warn("[Portada] No se han podido cargar los partidos de la semana", error);
+  }
 }
 
 function parseScoreToGoals(score) {

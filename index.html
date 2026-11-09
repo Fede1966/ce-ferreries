@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CE Ferreries | Gestión técnica</title>
-    <link rel="stylesheet" href="styles.css?v=20261104-1" />
+    <link rel="stylesheet" href="styles.css?v=20261109-1" />
   </head>
   <body>
     <section class="landing-page" id="landing-page">
@@ -14,13 +14,6 @@
           <div><strong>CE Ferreries</strong><span>Área técnica</span></div>
         </div>
         <a class="home-nav-link active" href="./">Inicio</a>
-        <div class="season-navigation" aria-label="Temporadas">
-          <span class="season-navigation-label">Temporada</span>
-          <div class="season-tabs">
-            <a class="season-tab landing-season-link" href="?temporada=2025-2026">2025-2026</a>
-            <a class="season-tab landing-season-link active" href="?temporada=2026-2027">2026-2027</a>
-          </div>
-        </div>
         <nav class="nav-tabs landing-nav-tabs" aria-label="Navegación principal">
           <a class="nav-button" href="?temporada=2026-2027&vista=squad">Equipos</a>
           <label class="header-team-selector landing-team-selector">
@@ -53,6 +46,14 @@
             <small>1923 — 2023</small>
           </div>
         </section>
+        <aside class="landing-weekend" id="landing-weekend" aria-labelledby="landing-weekend-title" hidden>
+          <header class="landing-weekend-head">
+            <span class="landing-kicker">Partidos de la semana</span>
+            <h2 id="landing-weekend-title"></h2>
+          </header>
+          <div class="landing-weekend-list" id="landing-weekend-list"></div>
+          <p class="landing-weekend-foot" id="landing-weekend-foot"></p>
+        </aside>
       </main>
     </section>
 
@@ -74,13 +75,6 @@
           </div>
         </div>
         <div class="sidebar-context">
-          <div class="season-navigation" aria-label="Temporadas">
-            <span class="season-navigation-label">Temporada</span>
-            <div class="season-tabs" role="tablist">
-              <button class="season-tab active" data-season="2025-2026" type="button" role="tab">2025-26</button>
-              <button class="season-tab" data-season="2026-2027" type="button" role="tab">2026-27</button>
-            </div>
-          </div>
           <label class="header-team-selector" id="toolbar-team-selector-wrap">
             <span>Equipo</span>
             <select id="toolbar-team-selector" aria-label="Seleccionar equipo"></select>
@@ -478,6 +472,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
     <script src="acta-fiche.js?v=20261021-2"></script>
-    <script src="app.js?v=20261109-2"></script>
+    <script src="app.js?v=20261109-3"></script>
   </body>
 </html>
