@@ -4305,6 +4305,28 @@ function openMatchReportImport(matchItem) {
   matchReportImportDialog.showModal();
 }
 
+// La usa la tarea semanal desde el navegador: guarda la clasificación oficial de la FFIB de un equipo.
+function saveFfibStandings(teamId, data) {
+  const team = state.teams.find((item) => item.id === teamId);
+  if (!team) throw new Error(`Equipo desconocido: ${teamId}`);
+  const num = (value) => Math.max(0, Math.round(Number(value) || 0));
+  const rows = (data?.rows || [])
+    .filter((row) => row && row.name)
+    .map((row) => ({
+      name: String(row.name).replace(/\s+/g, " ").trim(),
+      played: num(row.played), won: num(row.won), drawn: num(row.drawn), lost: num(row.lost),
+      goalsFor: num(row.goalsFor), goalsAgainst: num(row.goalsAgainst), points: num(row.points)
+    }));
+  if (rows.length < 2) throw new Error("Clasificación vacía: no se guarda");
+  team.standings = rows;
+  team.standingsUpdatedAt = new Date().toISOString();
+  team.standingsSource = "FFIB";
+  if (data.label !== undefined) team.standingsLabel = String(data.label || "");
+  saveState();
+  if (state.activeView === "matches") render();
+  return { teamId, filas: rows.length, ferreries: rows.filter((row) => /ferreries/i.test(row.name)).map((row) => `${rows.indexOf(row) + 1}º ${row.points} pts`) };
+}
+
 // Clasificación del equipo seleccionado. Se rellena desde la clasificación oficial de la FFIB
 // (team.standings = [{ name, played, won, drawn, lost, goalsFor, goalsAgainst, points }]).
 function standingsHtml() {
