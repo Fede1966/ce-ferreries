@@ -376,14 +376,15 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = document.querySelector("#login-username").value.trim().toLocaleLowerCase("es");
   const password = document.querySelector("#login-password").value;
+  const alias = username.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "-");
   const email = username.includes("@")
     ? username
-    : TEAM_LOGIN_ACCOUNTS[username]?.email || COORDINATOR_ACCOUNTS[username]?.email || "";
+    : TEAM_LOGIN_ACCOUNTS[alias]?.email || COORDINATOR_ACCOUNTS[alias]?.email || "";
   const submitButton = loginForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
   loginStatus.textContent = "Comprobando credenciales...";
   try {
-    if (!email) throw new Error("Este usuario todavía no está activado");
+    if (!email) throw new Error("Usuario no reconocido. Revisa el alias o escribe el correo de la cuenta.");
     const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
@@ -392,8 +393,10 @@ loginForm.addEventListener("submit", async (event) => {
     const result = await response.json();
     if (!response.ok || !result.access_token) throw new Error("Usuario o contraseña incorrectos");
     if (username.includes("@") && username !== ADMIN_EMAIL &&
-        result.user?.app_metadata?.club_role !== "coordinator") {
-      throw new Error("Usa el alias de tu equipo para iniciar sesión");
+        result.user?.app_metadata?.club_role !== "coordinator" &&
+        !Object.values(TEAM_LOGIN_ACCOUNTS).some((account) => account.email === username) &&
+        !Object.values(COORDINATOR_ACCOUNTS).some((account) => account.email === username)) {
+      throw new Error("Esta cuenta no tiene acceso de edición");
     }
     authSession = result;
     localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(result));
