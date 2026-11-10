@@ -126,6 +126,7 @@ function canEdit() {
   if (!authSession?.access_token) return false;
   const email = authSession.user?.email?.toLocaleLowerCase("es") || "";
   if (email === ADMIN_EMAIL) return true;
+  if (authSession.user?.app_metadata?.club_role === "coordinator") return true;
   if (Object.values(COORDINATOR_ACCOUNTS).some((account) => account.email === email)) return true;
   const assignedTeamId = Object.values(TEAM_LOGIN_ACCOUNTS)
     .find((account) => account.email === email)?.teamId;
@@ -375,8 +376,8 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = document.querySelector("#login-username").value.trim().toLocaleLowerCase("es");
   const password = document.querySelector("#login-password").value;
-  const email = username === ADMIN_EMAIL
-    ? ADMIN_EMAIL
+  const email = username.includes("@")
+    ? username
     : TEAM_LOGIN_ACCOUNTS[username]?.email || COORDINATOR_ACCOUNTS[username]?.email || "";
   const submitButton = loginForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
@@ -390,6 +391,10 @@ loginForm.addEventListener("submit", async (event) => {
     });
     const result = await response.json();
     if (!response.ok || !result.access_token) throw new Error("Usuario o contraseña incorrectos");
+    if (username.includes("@") && username !== ADMIN_EMAIL &&
+        result.user?.app_metadata?.club_role !== "coordinator") {
+      throw new Error("Usa el alias de tu equipo para iniciar sesión");
+    }
     authSession = result;
     localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(result));
     loginDialog.close();
@@ -404,7 +409,7 @@ loginForm.addEventListener("submit", async (event) => {
 });
 
 const recoveryParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-const recoveryAccessToken = recoveryParams.get("type") === "recovery"
+const recoveryAccessToken = ["recovery", "invite"].includes(recoveryParams.get("type"))
   ? recoveryParams.get("access_token")
   : "";
 
