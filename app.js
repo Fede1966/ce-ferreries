@@ -249,6 +249,26 @@ recoverKnown2026SeasonData();
 if (["squad", "matches", "standings", "statistics"].includes(requestedView)) {
   state.activeView = requestedView;
 }
+// ?equipo=<id> (desde el desplegable de la portada): abre la app con ese equipo.
+// Tiene prioridad sobre el equipo guardado en la base de datos en la primera carga.
+let pendingRequestedTeam = isLandingPage ? null : new URLSearchParams(window.location.search).get("equipo");
+applyRequestedTeam();
+
+function applyRequestedTeam() {
+  if (!pendingRequestedTeam || !state.teams.some((item) => item.id === pendingRequestedTeam)) return false;
+  state.activeTeamId = pendingRequestedTeam;
+  state.selectedPlayerId = activePlayers()[0]?.id || "";
+  state.selectedMatchId = activeMatches()[0]?.id || "";
+  return true;
+}
+
+function forgetRequestedTeam() {
+  pendingRequestedTeam = null;
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("equipo")) return;
+  params.delete("equipo");
+  history.replaceState(null, "", `${window.location.pathname}?${params}`);
+}
 document.querySelector("#landing-page").hidden = !isLandingPage;
 document.querySelector("#technical-app").hidden = isLandingPage;
 let draggedPlayerId = null;
@@ -2347,7 +2367,10 @@ function applyRemoteAppState(remoteAppState, preferLocal) {
     state.teams = mergeDefaultVisibleTeams([...teamsById.values()], defaultTeamsVersion);
     state.defaultTeamsVersion = DEFAULT_TEAMS_VERSION;
   }
-  if (!preferLocal && state.teams.some((item) => item.id === remoteAppState.activeTeamId)) {
+  if (pendingRequestedTeam && state.teams.some((item) => item.id === pendingRequestedTeam)) {
+    applyRequestedTeam();
+    forgetRequestedTeam();
+  } else if (!preferLocal && state.teams.some((item) => item.id === remoteAppState.activeTeamId)) {
     state.activeTeamId = remoteAppState.activeTeamId;
   }
   if (!preferLocal && Array.isArray(remoteAppState.staff)) {
@@ -3786,6 +3809,24 @@ function landingWeekHtml(items) {
     </section>`).join("");
 }
 
+// Desplegable de equipos de la portada: abre la app con el equipo elegido
+function fillLandingTeamSelector(teams) {
+  const select = document.querySelector("#landing-team-select");
+  if (!select || !teams.length) return;
+  const sorted = [...teams]
+    .filter((item) => item?.id && item?.name && !REMOVED_TEAM_IDS.has(String(item.id)))
+    .sort((first, second) => teamRelevance(first) - teamRelevance(second) || first.name.localeCompare(second.name, "es"));
+  select.innerHTML = `<option value="" selected disabled>Elegir equipo…</option>` + sorted
+    .map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(shortTeamName(item.name))}</option>`)
+    .join("");
+  select.disabled = false;
+}
+
+document.querySelector("#landing-team-select")?.addEventListener("change", (event) => {
+  if (!event.target.value) return;
+  window.location.href = `?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(event.target.value)}`;
+});
+
 async function loadLandingWeekMatches() {
   const box = document.querySelector("#landing-weekend");
   if (!box || !hasSupabaseConfig()) return;
@@ -3795,6 +3836,7 @@ async function loadLandingWeekMatches() {
     );
     const fixtures = rows?.[0]?.fixtures;
     const teams = rows?.[0]?.teams || [];
+    fillLandingTeamSelector(teams);
     if (!fixtures || !teams.length) return;
     const today = todayIso();
     const { end, list } = weekMatchesFrom(fixtures, teams, today);

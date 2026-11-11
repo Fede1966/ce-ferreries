@@ -4281,15 +4281,23 @@ button:focus-visible {
     overflow: visible;
   }
 
-  .landing-header .home-nav-link,
-  .landing-header .landing-team-selector {
+  .landing-header .home-nav-link {
     display: none !important;
+  }
+
+  .landing-header .landing-team-selector {
+    order: 10;
+    flex: 1 0 100%;
+  }
+
+  .landing-header .landing-team-selector select {
+    width: 100%;
   }
 
   .landing-header .landing-nav-tabs {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: space-between;
     width: 100%;
     gap: 4px;
