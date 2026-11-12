@@ -4428,3 +4428,11 @@ button:focus-visible {
   font-size: .72rem;
   font-weight: 600;
 }
+
+/* Fotos de jugador recortadas en cuadrado/círculo: anclar arriba para no cortar la cabeza */
+.avatar,
+.photo-preview,
+.statistics-player-photo,
+#technical-app .compare-photo {
+  background-position: center top !important;
+}
