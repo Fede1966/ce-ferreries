@@ -4421,3 +4421,10 @@ button:focus-visible {
 @media (max-width: 760px) {
   #technical-app .analysis-grid-3 { grid-template-columns: 1fr; }
 }
+
+.ranking-list strong small {
+  margin-right: 4px;
+  color: var(--muted, #6b7280);
+  font-size: .72rem;
+  font-weight: 600;
+}

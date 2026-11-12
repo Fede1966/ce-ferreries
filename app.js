@@ -4794,8 +4794,11 @@ function renderPlayersStatistics() {
   const rankingCards = [
     { title: "Partidos", key: "played", suffix: "" },
     { title: "Minutos", key: "minutes", suffix: "" },
-    { title: "Goles", key: "goals", suffix: "" }
+    { title: "Goles", key: "goals", suffix: "" },
+    { title: "Titularidades", key: "starts", suffix: "" },
+    { title: "Tarjetas", key: "cards", suffix: "", nonZero: true, detail: (r) => `${r.yellowCards} TA · ${r.redCards} TR` }
   ];
+  playerRows.forEach((row) => { row.cards = (row.yellowCards || 0) + (row.redCards || 0); });
 
   views.statistics.innerHTML = `
     <div class="club-statistics-page">
@@ -4904,7 +4907,8 @@ function renderTeamSummary(label, icon, value, details, featured = false) {
 function renderRankingCard(ranking, playerRows) {
   const rows = playerRows
     .slice()
-    .sort((a, b) => b[ranking.key] - a[ranking.key] || a.number - b.number)
+    .filter((row) => !ranking.nonZero || row[ranking.key] > 0)
+    .sort((a, b) => b[ranking.key] - a[ranking.key] || (b.redCards || 0) - (a.redCards || 0) || a.number - b.number)
     .slice(0, 5);
   const leader = rows[0];
   const photoStyle = leader?.photo ? `style="background-image:url('${escapeAttr(leader.photo)}')"` : "";
@@ -4932,7 +4936,7 @@ function renderRankingCard(ranking, playerRows) {
             (playerItem) => `
               <li>
                 <span>${escapeHtml(playerItem.name)}</span>
-                <strong>${playerItem[ranking.key]}${ranking.suffix}</strong>
+                <strong>${ranking.detail ? `<small>${escapeHtml(ranking.detail(playerItem))}</small> ` : ""}${playerItem[ranking.key]}${ranking.suffix}</strong>
               </li>
             `
           )
