@@ -4597,10 +4597,50 @@ function renderSummaryTab() {
         ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="currentColor"/><text x="${p[0]}" y="${H - 6}" text-anchor="middle" font-size="10">J${matches[i].round}</text><text x="${p[0]}" y="${p[1] - 8}" text-anchor="middle" font-size="10">${series[i]}</text>`).join("")}
       </svg>`
     : `<div class="empty-state">Aún no hay partidos jugados.</div>`;
-  const topMinutes = rows.slice().sort((a, b) => b.minutes - a.minutes).filter((r) => r.minutes > 0).slice(0, 6);
-  const maxMin = topMinutes[0]?.minutes || 1;
+  const top = (key, filter = (r) => r[key] > 0) => rows.filter(filter).sort((a, b) => b[key] - a[key] || b.minutes - a.minutes).slice(0, 5);
+  const topMinutes = top("minutes");
+  const topScorers = top("goals");
+  const topCards = rows
+    .filter((r) => r.yellowCards + r.redCards > 0)
+    .sort((a, b) => (b.yellowCards + b.redCards) - (a.yellowCards + a.redCards) || b.redCards - a.redCards || a.name.localeCompare(b.name, "es"))
+    .slice(0, 5);
+  const barList = (list, key, suffix = "") => {
+    const maximum = list[0]?.[key] || 1;
+    return list.map((r) => `<div class="bar-row"><span>${escapeHtml(r.name)}</span><div class="bar"><i style="width:${Math.round((r[key] / maximum) * 100)}%"></i></div><b>${r[key]}${suffix}</b></div>`).join("");
+  };
   const last = matches[matches.length - 1];
   const form = matches.slice(-5).map((m) => { const r = ownResult(m); return `<span class="result ${r.letter === "E" ? "draw" : r.letter === "P" ? "loss" : ""}">${r.letter}</span>`; }).join("");
+  const lastHtml = (() => {
+    if (!last) return `<div class="empty-state">Todavía no hay partidos jugados.</div>`;
+    const r = ownResult(last);
+    const away = ownTeamSide(last) === "away";
+    return `
+      <div class="summary-match">
+        <span class="summary-match-badge ${r.letter === "E" ? "draw" : r.letter === "P" ? "loss" : "win"}">${r.letter === "G" ? "Victoria" : r.letter === "E" ? "Empate" : "Derrota"}</span>
+        <p class="summary-match-score"><strong>${escapeHtml(last.home)}</strong> <b>${last.homeGoals} – ${last.awayGoals}</b> <strong>${escapeHtml(last.away)}</strong></p>
+        <p class="meta">${last.competition === "cup" ? "Copa" : "Liga"} · Jornada ${last.round}${last.date ? " · " + formatDate(last.date) : ""} · ${away ? "Fuera" : "En casa"}</p>
+        <button class="secondary-button" type="button" data-open-match="${escapeAttr(last.id)}">Ver partido</button>
+      </div>`;
+  })();
+  const nextHtml = (() => {
+    const f = nextFixture();
+    if (!f) {
+      return `<div class="empty-state">${state.fixtures?.[state.activeTeamId] ? "No hay más partidos en el calendario." : "El calendario de este equipo todavía no se ha cargado."}</div>`;
+    }
+    const days = daysUntil(f.when);
+    const countdown = days === 0 ? "Hoy" : days === 1 ? "Mañana" : `En ${days} días`;
+    return `
+      <div class="summary-match">
+        <span class="summary-match-badge next">${countdown}</span>
+        <p class="summary-match-score"><strong>${escapeHtml(f.ownSide === "home" ? currentTeam().name : f.rival)}</strong> <b>vs</b> <strong>${escapeHtml(f.ownSide === "home" ? f.rival : currentTeam().name)}</strong></p>
+        <p class="meta"><strong>${escapeHtml(fixtureDateLabel(f, true))}</strong> · ${f.exact?.time ? `${escapeHtml(f.exact.time)} h` : "hora por confirmar"}</p>
+        <p class="meta">${f.kind === "cup" ? "Copa" : "Liga"} · Jornada ${f.round} · ${f.ownSide === "home" ? "En casa" : "Fuera"}${f.exact?.campo ? ` · ${escapeHtml(prettyFfibName(f.exact.campo))}` : ""}</p>
+        ${f.appMatch && f.appMatch.status !== "Jugado"
+          ? `<button class="secondary-button" type="button" data-open-match="${escapeAttr(f.appMatch.id)}">Abrir partido</button>`
+          : canEdit() ? `<button class="secondary-button" type="button" data-prepare-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Preparar partido</button>` : ""}
+      </div>`;
+  })();
+  const cardIcons = (r) => `${r.yellowCards ? `<span class="card-chip yellow" title="Amarillas">${r.yellowCards}</span>` : ""}${r.redCards ? `<span class="card-chip red" title="Rojas">${r.redCards}</span>` : ""}`;
   return `
     <div class="club-statistics-page analysis-page">
       <div class="analysis-metrics">
@@ -4610,12 +4650,19 @@ function renderSummaryTab() {
         ${renderMetric("Goles", `${stats.goalsFor} – ${stats.goalsAgainst} <small>(${stats.goalsFor - stats.goalsAgainst >= 0 ? "+" : ""}${stats.goalsFor - stats.goalsAgainst})</small>`)}
       </div>
       <div class="analysis-grid">
-        <section class="panel"><h3>Evolución de puntos</h3>${chart}${form ? `<p class="meta">Últimos partidos: ${form}</p>` : ""}</section>
+        <section class="panel"><h3>Último partido</h3>${lastHtml}</section>
+        <section class="panel"><h3>Próximo partido</h3>${nextHtml}</section>
+        <section class="panel wide"><h3>Evolución de puntos</h3>${chart}${form ? `<p class="meta">Últimos partidos: ${form}</p>` : ""}</section>
+      </div>
+      <div class="analysis-grid analysis-grid-3">
         <section class="panel"><h3>Más minutos</h3>
-          ${topMinutes.length ? topMinutes.map((r) => `<div class="bar-row"><span>${escapeHtml(r.name)}</span><div class="bar"><i style="width:${Math.round((r.minutes / maxMin) * 100)}%"></i></div><b>${r.minutes}'</b></div>`).join("") : `<div class="empty-state">Sin minutos registrados.</div>`}
+          ${topMinutes.length ? barList(topMinutes, "minutes", "'") : `<div class="empty-state">Sin minutos registrados.</div>`}
         </section>
-        <section class="panel wide"><h3>Último partido</h3>
-          ${last ? `<p><strong>${escapeHtml(last.home)} ${last.homeGoals} – ${last.awayGoals} ${escapeHtml(last.away)}</strong></p><p class="meta">Jornada ${last.round}${last.date ? " · " + formatDate(last.date) : ""}</p>` : `<div class="empty-state">Todavía no hay partidos jugados.</div>`}
+        <section class="panel"><h3>Máximos goleadores</h3>
+          ${topScorers.length ? barList(topScorers, "goals") : `<div class="empty-state">Todavía no hay goles.</div>`}
+        </section>
+        <section class="panel"><h3>Más tarjetas</h3>
+          ${topCards.length ? topCards.map((r) => `<div class="card-row"><span>${escapeHtml(r.name)}</span><span class="card-chips">${cardIcons(r)}</span></div>`).join("") : `<div class="empty-state">Ninguna tarjeta. ¡Bien!</div>`}
         </section>
       </div>
     </div>`;
@@ -4715,6 +4762,16 @@ function renderStatistics() {
     const body = statisticsTab === "compare" ? renderCompareTab() : statisticsTab === "participation" ? renderParticipationTab() : renderSummaryTab();
     views.statistics.innerHTML = statisticsTabsHtml() + body;
     bindStatisticsTabs();
+    views.statistics.querySelectorAll("[data-open-match]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.selectedMatchId = button.dataset.openMatch;
+        state.activeDetailTab = "plan";
+        setView("detail");
+      });
+    });
+    views.statistics.querySelectorAll("[data-prepare-fixture]").forEach((button) => {
+      button.addEventListener("click", () => prepareFixtureMatch(button.dataset.prepareFixture));
+    });
     views.statistics.querySelectorAll("[data-compare-slot]").forEach((select) => {
       select.addEventListener("change", () => {
         compareIds = [...new Set([...views.statistics.querySelectorAll("[data-compare-slot]")].map((s) => s.value).filter(Boolean))];
