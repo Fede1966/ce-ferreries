@@ -5708,14 +5708,21 @@ function normalizeGoalsConceded(value) {
 // Goles encajados por portero en un partido.
 // Manual (lo pone el entrenador) si existe; si no, automático cuando solo jugó un portero.
 // Si jugaron dos o más porteros y nadie lo ha repartido, queda pendiente (value null).
+// Un portero cuenta como «en el campo» solo si jugó minutos: el suplente que figura en el acta
+// sin jugar (rol "none") no debe repartirse los goles recibidos.
+function keeperOnPitch(playerItem, matchItem) {
+  if (!playerParticipatedInMatch(playerItem, matchItem)) return false;
+  return matchItem.actaPlayers?.[playerItem.id]?.role !== "none";
+}
+
 function goalsConcededInMatch(playerItem, matchItem) {
-  if (playerItem.position !== "Portero" || !playerParticipatedInMatch(playerItem, matchItem)) return null;
+  if (playerItem.position !== "Portero" || !keeperOnPitch(playerItem, matchItem)) return null;
   const manual = playerReport(playerItem, matchItem.id).goalsConceded;
   if (manual != null) return { value: manual, manual: true };
   const score = parseScore(matchItem.score);
   if (!score) return { value: null, pending: true };
   const against = ownTeamSide(matchItem) === "away" ? score.home : score.away;
-  const keepers = activePlayers().filter((p) => p.position === "Portero" && playerParticipatedInMatch(p, matchItem));
+  const keepers = activePlayers().filter((p) => p.position === "Portero" && keeperOnPitch(p, matchItem));
   if (keepers.length === 1) return { value: against, manual: false };
   return { value: null, pending: true, against };
 }
