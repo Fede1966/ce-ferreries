@@ -3852,7 +3852,7 @@ function landingResultsHtml(results, teams) {
       const own = r.side === "away" ? score.away : score.home;
       const other = r.side === "away" ? score.home : score.away;
       const outcome = own > other ? "win" : own < other ? "loss" : "draw";
-      const rival = prettyFfibName(r.side === "away" ? r.home : r.away);
+      const rival = prettyFfibName(r.side === "away" ? r.home : r.away).replace(/\s+\d{4}-\d{4}$/, "");
       return `
         <li>
           <span class="landing-weekend-time">${escapeHtml(day(r.date))}</span>
