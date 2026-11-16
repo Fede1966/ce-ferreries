@@ -2056,7 +2056,7 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
       "lineups",
       [{
         match_id: NEW_SEASON_APP_STATE_MATCH_ID,
-        lineup: { __seasonState: state },
+        lineup: { __seasonState: state, __results: playedResultsIndex() },
         updated_at: new Date().toISOString()
       }],
       "match_id"
@@ -3827,16 +3827,94 @@ document.querySelector("#landing-team-select")?.addEventListener("change", (even
   window.location.href = `?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(event.target.value)}`;
 });
 
+// Resumen ligero de los partidos jugados, para que la portada no descargue todos los datos
+function playedResultsIndex() {
+  return state.matches
+    .filter((m) => m.status === "Jugado" && m.date && parseScore(m.score))
+    .map((m) => ({ teamId: m.teamId, date: m.date, round: m.round, competition: m.competition || "league", home: m.home, away: m.away, score: m.score, side: ownTeamSide(m) }));
+}
+
+function lastWeekendRange(today = todayIso()) {
+  const dow = new Date(`${today}T12:00:00`).getDay();
+  const sunday = addDaysIso(today, dow === 0 ? 0 : -dow);
+  return { from: addDaysIso(sunday, -2), to: sunday };
+}
+
+function landingResultsHtml(results, teams) {
+  if (!results.length) return `<p class="landing-weekend-empty">No hay resultados de este fin de semana.</p>`;
+  const order = new Map(teams.map((t) => [t.id, teamRelevance(t)]));
+  const day = (iso) => new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(new Date(`${iso}T12:00:00`)).replace(".", "");
+  return `<ul class="landing-results">${results
+    .sort((a, b) => (order.get(a.teamId) ?? 99) - (order.get(b.teamId) ?? 99) || a.date.localeCompare(b.date))
+    .map((r) => {
+      const team = teams.find((t) => t.id === r.teamId);
+      const score = parseScore(r.score);
+      const own = r.side === "away" ? score.away : score.home;
+      const other = r.side === "away" ? score.home : score.away;
+      const outcome = own > other ? "win" : own < other ? "loss" : "draw";
+      const rival = prettyFfibName(r.side === "away" ? r.home : r.away);
+      return `
+        <li>
+          <span class="landing-weekend-time">${escapeHtml(day(r.date))}</span>
+          <span class="landing-weekend-match">
+            <strong>${escapeHtml(shortTeamName(team?.name || r.teamId))}</strong>
+            <span>${r.side === "away" ? "en" : "vs"} ${escapeHtml(rival)}${r.competition === "cup" ? " · Copa" : ""}</span>
+          </span>
+          <span class="landing-result ${outcome}" title="${outcome === "win" ? "Victoria" : outcome === "loss" ? "Derrota" : "Empate"}">${own}–${other}</span>
+        </li>`;
+    }).join("")}</ul>`;
+}
+
+// La lista de la portada empieza plegada; se despliega al pulsar la cabecera
+function setLandingFold(toggle, open) {
+  const body = document.getElementById(toggle.getAttribute("aria-controls"));
+  toggle.setAttribute("aria-expanded", String(open));
+  if (body) body.hidden = !open;
+  toggle.closest(".landing-weekend")?.classList.toggle("is-open", open);
+}
+
+document.querySelectorAll(".landing-weekend-head").forEach((toggle) => {
+  toggle.addEventListener("click", () => setLandingFold(toggle, toggle.getAttribute("aria-expanded") !== "true"));
+});
+
+async function loadLandingResults(results, teams) {
+  const box = document.querySelector("#landing-results");
+  if (!box || !teams.length) return;
+  try {
+    if (!Array.isArray(results)) {
+      // Todavía no se ha guardado el resumen: se calcula una vez a partir de todos los partidos
+      const rows = await supabaseRequest(`lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=matches:lineup->__seasonState->matches`);
+      const names = new Map(teams.map((t) => [t.id, t.name]));
+      results = (rows?.[0]?.matches || [])
+        .filter((m) => m.status === "Jugado" && m.date && parseScore(m.score))
+        .map((m) => ({ ...m, side: m.away === names.get(m.teamId) ? "away" : "home" }));
+    }
+    const { from, to } = lastWeekendRange();
+    const recent = results.filter((r) => r.date >= from && r.date <= to && parseScore(r.score));
+    const fmt = (iso, opts) => new Intl.DateTimeFormat("es-ES", opts).format(new Date(`${iso}T12:00:00`));
+    document.querySelector("#landing-results-title").textContent = `Del ${fmt(from, { day: "numeric" })} al ${fmt(to, { day: "numeric", month: "long" })}`;
+    const wins = recent.filter((r) => { const s = parseScore(r.score); return r.side === "away" ? s.away > s.home : s.home > s.away; }).length;
+    document.querySelector("#landing-results-count").textContent = recent.length
+      ? `${wins} ${wins === 1 ? "victoria" : "victorias"} de ${recent.length}`
+      : "Sin partidos";
+    document.querySelector("#landing-results-list").innerHTML = landingResultsHtml(recent, teams);
+    box.hidden = false;
+  } catch (error) {
+    console.warn("[Portada] No se han podido cargar los resultados", error);
+  }
+}
+
 async function loadLandingWeekMatches() {
   const box = document.querySelector("#landing-weekend");
   if (!box || !hasSupabaseConfig()) return;
   try {
     const rows = await supabaseRequest(
-      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams`
+      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams,results:lineup->__results`
     );
     const fixtures = rows?.[0]?.fixtures;
     const teams = rows?.[0]?.teams || [];
     fillLandingTeamSelector(teams);
+    loadLandingResults(rows?.[0]?.results, teams);
     if (!fixtures || !teams.length) return;
     const today = todayIso();
     const { end, list } = weekMatchesFrom(fixtures, teams, today);
@@ -3849,6 +3927,9 @@ async function loadLandingWeekMatches() {
     document.querySelector("#landing-weekend-foot").textContent = updated
       ? `Horarios de la FFIB · actualizados el ${new Date(updated).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`
       : "Horarios de la FFIB";
+    document.querySelector("#landing-weekend-count").textContent = list.length
+      ? `${list.length} ${list.length === 1 ? "partido" : "partidos"}`
+      : "Sin partidos";
     box.hidden = false;
   } catch (error) {
     console.warn("[Portada] No se han podido cargar los partidos de la semana", error);

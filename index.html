@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CE Ferreries | Gestión técnica</title>
-    <link rel="stylesheet" href="styles.css?v=20261112-3" />
+    <link rel="stylesheet" href="styles.css?v=20261116-2" />
   </head>
   <body>
     <section class="landing-page" id="landing-page">
@@ -46,14 +46,39 @@
             <small>1923 — 2023</small>
           </div>
         </section>
-        <aside class="landing-weekend" id="landing-weekend" aria-labelledby="landing-weekend-title" hidden>
-          <header class="landing-weekend-head">
-            <span class="landing-kicker">Partidos de la semana</span>
-            <h2 id="landing-weekend-title"></h2>
-          </header>
-          <div class="landing-weekend-list" id="landing-weekend-list"></div>
-          <p class="landing-weekend-foot" id="landing-weekend-foot"></p>
+        <div class="landing-panels">
+        <aside class="landing-weekend landing-results-box" id="landing-results" aria-labelledby="landing-results-title" hidden>
+          <button class="landing-weekend-head" type="button" aria-expanded="false" aria-controls="landing-results-body">
+            <span class="landing-weekend-head-text">
+              <span class="landing-kicker">Resultados del fin de semana</span>
+              <span class="landing-weekend-title-row">
+                <h2 id="landing-results-title"></h2>
+                <span class="landing-weekend-count" id="landing-results-count"></span>
+              </span>
+            </span>
+            <svg class="landing-weekend-chevron" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="landing-weekend-body" id="landing-results-body" hidden>
+            <div class="landing-weekend-list" id="landing-results-list"></div>
+          </div>
         </aside>
+        <aside class="landing-weekend" id="landing-weekend" aria-labelledby="landing-weekend-title" hidden>
+          <button class="landing-weekend-head" id="landing-weekend-toggle" type="button" aria-expanded="false" aria-controls="landing-weekend-body">
+            <span class="landing-weekend-head-text">
+              <span class="landing-kicker">Partidos de la semana</span>
+              <span class="landing-weekend-title-row">
+                <h2 id="landing-weekend-title"></h2>
+                <span class="landing-weekend-count" id="landing-weekend-count"></span>
+              </span>
+            </span>
+            <svg class="landing-weekend-chevron" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="landing-weekend-body" id="landing-weekend-body" hidden>
+            <div class="landing-weekend-list" id="landing-weekend-list"></div>
+            <p class="landing-weekend-foot" id="landing-weekend-foot"></p>
+          </div>
+        </aside>
+        </div>
       </main>
     </section>
 
@@ -472,6 +497,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
     <script src="acta-fiche.js?v=20261021-2"></script>
-    <script src="app.js?v=20261112-3"></script>
+    <script src="app.js?v=20261116-2"></script>
   </body>
 </html>
