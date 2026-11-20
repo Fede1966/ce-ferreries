@@ -5529,3 +5529,8 @@ html {
     justify-content: center;
   }
 }
+
+.club-venue-facts a,
+.landing-footer-contact a {
+  white-space: nowrap;
+}
