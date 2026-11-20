@@ -5632,3 +5632,9 @@ html {
   border-color: rgb(242 199 101 / 70%);
   background: rgb(242 199 101 / 10%);
 }
+
+@media (min-width: 1101px) {
+  .history-timeline {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
