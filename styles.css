@@ -5340,3 +5340,8 @@ button:focus-visible {
     gap: 12px;
   }
 }
+
+/* Foto de portada: presentación de la temporada (encuadre para ver caras y grada) */
+.landing-hero-compact .landing-hero-photo {
+  object-position: center 30%;
+}
