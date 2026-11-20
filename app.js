@@ -3913,7 +3913,7 @@ function renderClubSections(teams, fixtures, results, publicData) {
       <a class="team-card" href="?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(team.id)}">
         <div class="team-card-photo ${photo ? "" : "no-photo"}" ${photo}>
           ${photo ? "" : `<img src="assets/ce-ferreries-crest.gif" alt="" />`}
-          ${position ? `<span class="team-card-position" title="Posición en la clasificación"><b>${position}º</b>${ownRow ? `<small>${ownRow.points} pts</small>` : ""}</span>` : ""}
+          ${position ? `<span class="team-card-position" title="Posición en la clasificación"><b>${position}º</b>${ownRow ? `<small>${ownRow.points} ${ownRow.points === 1 ? "pt" : "pts"}</small>` : ""}</span>` : ""}
         </div>
         <div class="team-card-body">
           <h3>${escapeHtml(name)}</h3>

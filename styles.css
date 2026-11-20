@@ -5136,3 +5136,12 @@ button:focus-visible {
   font-size: 1rem;
   font-weight: 600;
 }
+
+.team-card-facts dd {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.team-card-rival {
+  white-space: normal;
+}
