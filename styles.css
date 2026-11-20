@@ -5534,3 +5534,101 @@ html {
 .landing-footer-contact a {
   white-space: nowrap;
 }
+
+/* Historia ampliada: tarjetas por hito en rejilla (desktop) */
+@media (min-width: 1101px) {
+  .history-timeline {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 34px 18px;
+    padding-top: 0;
+  }
+
+  .history-timeline::before {
+    display: none;
+  }
+
+  .history-timeline li {
+    padding-top: 18px;
+    border-top: 2px solid rgb(242 199 101 / 55%);
+  }
+
+  .history-timeline li::before {
+    top: -8px;
+  }
+}
+
+.history-tribute {
+  margin: 40px 0 0;
+  padding: 20px 24px;
+  border-left: 4px solid #f2c765;
+  border-radius: 0 12px 12px 0;
+  background: rgb(255 255 255 / 6%);
+}
+
+.history-tribute .landing-kicker {
+  margin-bottom: 6px;
+  color: #f2c765;
+}
+
+.history-tribute p {
+  margin: 0;
+  color: rgb(255 255 255 / 85%);
+  line-height: 1.6;
+}
+
+.history-tribute strong {
+  color: #fff;
+}
+
+.history-presidents {
+  margin-top: 40px;
+}
+
+.history-presidents h3 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+}
+
+.history-presidents ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: presidente;
+}
+
+.history-presidents li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  column-gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 4%);
+  counter-increment: presidente;
+}
+
+.history-presidents li::before {
+  content: counter(presidente);
+  grid-row: span 2;
+  align-self: center;
+  color: #f2c765;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-presidents li strong {
+  font-size: .92rem;
+}
+
+.history-presidents li span {
+  color: rgb(255 255 255 / 60%);
+  font-size: .8rem;
+}
+
+.history-presidents li.is-current {
+  border-color: rgb(242 199 101 / 70%);
+  background: rgb(242 199 101 / 10%);
+}
