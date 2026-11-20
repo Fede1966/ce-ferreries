@@ -1,3 +1,4 @@
+const BROKEN_ACCENT_WORDS = [["Alev\uFFFDn", "Alevín"], ["Benjam\uFFFDn", "Benjamín"], ["benjam\uFFFDn", "benjamín"], ["Divisi\uFFFDn", "División"]];
 const STORAGE_KEY = "athletic-club-technical-app-v1";
 const STORAGE_BACKUP_KEY = `${STORAGE_KEY}-backup`;
 const ACTIVE_SEASON_KEY = "ce-ferreries-active-season";
@@ -2056,7 +2057,7 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
       "lineups",
       [{
         match_id: NEW_SEASON_APP_STATE_MATCH_ID,
-        lineup: { __seasonState: state, __results: playedResultsIndex() },
+        lineup: { __seasonState: state, __results: playedResultsIndex(), __public: publicClubSummary() },
         updated_at: new Date().toISOString()
       }],
       "match_id"
@@ -2548,6 +2549,16 @@ function setView(view) {
   state.activeView = view;
   saveState();
   render();
+  syncViewInUrl(view);
+}
+
+// Mantiene ?vista= en la dirección para que se pueda compartir o recargar la misma sección
+function syncViewInUrl(view) {
+  if (isLandingPage || !["squad", "matches", "statistics"].includes(view)) return;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("vista") === view) return;
+  params.set("vista", view);
+  history.replaceState(null, "", `${window.location.pathname}?${params}`);
 }
 
 function currentTeam() {
@@ -2761,7 +2772,6 @@ function teamRelevance(item) {
 // Algunos nombres de equipo se guardaron con la tilde rota ("Alev\uFFFDn"). Se corrigen en el equipo y en
 // sus partidos a la vez, para que la app siga sabiendo si jugamos de local o de visitante.
 // No cambia lastModifiedAt: la corrección llega a la base de datos con el siguiente guardado normal.
-const BROKEN_ACCENT_WORDS = [["Alev\uFFFDn", "Alevín"], ["Benjam\uFFFDn", "Benjamín"], ["benjam\uFFFDn", "benjamín"], ["Divisi\uFFFDn", "División"]];
 
 function repairTeamNameAccents() {
   let changed = false;
@@ -2868,7 +2878,9 @@ function recoverKnown2026SeasonData() {
 
 function render() {
   seasonLabel.textContent = `Temporada ${activeSeason}`;
-  document.title = `CE Ferreries | Temporada ${activeSeason}`;
+  document.title = isLandingPage
+    ? "CE Ferreries · Club de fútbol de Ferreries (Menorca)"
+    : `${pageTitleForView(state.activeView)} · ${shortTeamName(currentTeam()?.name || "")} | CE Ferreries`;
   document.querySelectorAll(".season-tab").forEach((button) => {
     const isActive = button.dataset.season === activeSeason;
     button.classList.toggle("active", isActive);
@@ -2888,7 +2900,7 @@ function render() {
   addMatchVideoButton.style.display = state.activeView === "matches" ? "inline-flex" : "none";
   toolbarTeamSelector.innerHTML = [...state.teams]
     .sort((first, second) => teamRelevance(first) - teamRelevance(second) || first.name.localeCompare(second.name, "es"))
-    .map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === state.activeTeamId ? "selected" : ""}>${escapeHtml(item.name)}</option>`)
+    .map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === state.activeTeamId ? "selected" : ""}>${escapeHtml(shortTeamName(item.name))}</option>`)
     .join("");
   pageTitle.textContent = pageTitleForView(state.activeView);
   const mobileTeamName = document.querySelector("#mobile-team-name");
@@ -3827,6 +3839,107 @@ document.querySelector("#landing-team-select")?.addEventListener("change", (even
   window.location.href = `?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(event.target.value)}`;
 });
 
+// Datos públicos y ligeros para la portada (solo recuentos, sin datos personales)
+function publicClubSummary() {
+  const playersByTeam = {};
+  state.players.forEach((item) => {
+    const teamId = item.teamId || DEFAULT_TEAM_ID;
+    playersByTeam[teamId] = (playersByTeam[teamId] || 0) + 1;
+  });
+  return { playersByTeam, updatedAt: new Date().toISOString() };
+}
+
+function nextFixtureFor(fixtures, team, today = todayIso()) {
+  const list = [];
+  (fixtures?.[team.id]?.competitions || []).forEach((comp) => {
+    (comp.jornadas || []).forEach((j) => {
+      const ownSide = fixtureOwnSide(j);
+      const rivalName = ownSide === "home" ? j.away : j.home;
+      const when = j.exact?.date || j.date;
+      if (!when || when < today || /descansa/i.test(rivalName)) return;
+      list.push({ when, ownSide, rival: prettyFfibName(rivalName), exact: j.exact || null, kind: comp.kind });
+    });
+  });
+  return list.sort((a, b) => a.when.localeCompare(b.when))[0] || null;
+}
+
+function resultOutcome(result) {
+  const score = parseScore(result.score);
+  if (!score) return null;
+  const own = result.side === "away" ? score.away : score.home;
+  const other = result.side === "away" ? score.home : score.away;
+  return { own, other, outcome: own > other ? "win" : own < other ? "loss" : "draw" };
+}
+
+function renderClubSections(teams, fixtures, results, publicData) {
+  const sorted = [...teams]
+    .filter((item) => item?.id && !REMOVED_TEAM_IDS.has(String(item.id)))
+    .sort((a, b) => teamRelevance(a) - teamRelevance(b));
+  if (!sorted.length) return;
+  const today = todayIso();
+  const played = results.map((r) => ({ ...r, res: resultOutcome(r) })).filter((r) => r.res);
+
+  // La temporada en cifras
+  const players = publicData?.playersByTeam ? Object.entries(publicData.playersByTeam)
+    .filter(([id]) => sorted.some((t) => t.id === id))
+    .reduce((sum, [, n]) => sum + n, 0) : 0;
+  const wins = played.filter((r) => r.res.outcome === "win").length;
+  const goals = played.reduce((sum, r) => sum + r.res.own, 0);
+  const figures = [
+    [sorted.length, "equipos"],
+    players ? [players, "jugadores"] : null,
+    [played.length, "partidos jugados"],
+    [played.length ? `${Math.round((wins / played.length) * 100)}%` : "–", "de victorias"],
+    [goals, "goles marcados"]
+  ].filter(Boolean);
+  document.querySelector("#club-figures-list").innerHTML = figures
+    .map(([value, label]) => `<div class="club-figure"><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(label)}</span></div>`)
+    .join("");
+  document.querySelector("#club-figures").hidden = false;
+  const teamsCount = document.querySelector("#club-about-teams");
+  if (teamsCount) teamsCount.textContent = `${sorted.length} equipos`;
+
+  // Nuestros equipos
+  const dayFmt = new Intl.DateTimeFormat("es-ES", { weekday: "short", day: "numeric", month: "short" });
+  document.querySelector("#team-grid").innerHTML = sorted.map((team) => {
+    const table = team.standings || [];
+    const position = table.findIndex((row) => isOwnStandingsRow(row.name, team)) + 1;
+    const ownRow = position ? table[position - 1] : null;
+    const last = played.filter((r) => r.teamId === team.id).sort((a, b) => b.date.localeCompare(a.date))[0];
+    const next = nextFixtureFor(fixtures, team, today);
+    const name = shortTeamName(team.name);
+    const photo = team.photoUrl ? `style="background-image:url('${escapeAttr(team.photoUrl)}')"` : "";
+    return `
+      <a class="team-card" href="?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(team.id)}">
+        <div class="team-card-photo ${photo ? "" : "no-photo"}" ${photo}>
+          ${photo ? "" : `<img src="assets/ce-ferreries-crest.gif" alt="" />`}
+          ${position ? `<span class="team-card-position" title="Posición en la clasificación"><b>${position}º</b>${ownRow ? `<small>${ownRow.points} pts</small>` : ""}</span>` : ""}
+        </div>
+        <div class="team-card-body">
+          <h3>${escapeHtml(name)}</h3>
+          <p class="team-card-league">${escapeHtml(team.standingsLabel || (position ? "Liga" : "Temporada 2026-2027"))}${table.length ? ` · ${table.length} equipos` : ""}</p>
+          <dl class="team-card-facts">
+            <div>
+              <dt>Último</dt>
+              <dd>${last
+                ? `<span class="landing-result ${last.res.outcome}">${last.res.own}–${last.res.other}</span> <span class="team-card-rival">${last.side === "away" ? "en" : "vs"} ${escapeHtml(prettyFfibName(last.side === "away" ? last.home : last.away).replace(/\s+\d{4}-\d{4}$/, ""))}</span>`
+                : `<span class="team-card-muted">Sin partidos todavía</span>`}</dd>
+            </div>
+            <div>
+              <dt>Próximo</dt>
+              <dd>${next
+                ? `<strong>${escapeHtml(dayFmt.format(new Date(`${next.when}T12:00:00`)).replace(/\./g, ""))}${next.exact?.time ? ` · ${escapeHtml(next.exact.time)}` : ""}</strong> <span class="team-card-rival">${next.ownSide === "home" ? "vs" : "en"} ${escapeHtml(next.rival)}</span>`
+                : `<span class="team-card-muted">Sin fecha</span>`}</dd>
+            </div>
+          </dl>
+        </div>
+      </a>`;
+  }).join("");
+  document.querySelector("#club-teams").hidden = false;
+  const year = document.querySelector("#landing-year");
+  if (year) year.textContent = String(new Date().getFullYear());
+}
+
 // Resumen ligero de los partidos jugados, para que la portada no descargue todos los datos
 function playedResultsIndex() {
   return state.matches
@@ -3909,12 +4022,13 @@ async function loadLandingWeekMatches() {
   if (!box || !hasSupabaseConfig()) return;
   try {
     const rows = await supabaseRequest(
-      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams,results:lineup->__results`
+      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams,results:lineup->__results,public:lineup->__public`
     );
     const fixtures = rows?.[0]?.fixtures;
     const teams = rows?.[0]?.teams || [];
     fillLandingTeamSelector(teams);
     loadLandingResults(rows?.[0]?.results, teams);
+    renderClubSections(teams, fixtures || {}, rows?.[0]?.results || [], rows?.[0]?.public || null);
     if (!fixtures || !teams.length) return;
     const today = todayIso();
     const { end, list } = weekMatchesFrom(fixtures, teams, today);
@@ -4192,20 +4306,29 @@ function formatMatchSchedule(item) {
 }
 
 function renderMatchCard(item) {
+  const score = item.status === "Jugado" ? parseScore(item.score) : null;
+  let outcome = "";
+  if (score) {
+    const away = ownTeamSide(item) === "away";
+    const own = away ? score.away : score.home;
+    const other = away ? score.home : score.away;
+    outcome = own > other ? "win" : own < other ? "loss" : "draw";
+  }
+  const outcomeLabel = { win: "Victoria", draw: "Empate", loss: "Derrota" }[outcome] || "";
   return `
-    <article class="match-card">
+    <article class="match-card ${outcome ? `is-${outcome}` : ""}">
       <div class="match-title">
         <div>
           <span class="tag">${escapeHtml(matchStageLabel(item))}</span>
           <h3>${escapeHtml(item.home)} vs ${escapeHtml(item.away)}</h3>
         </div>
-        <strong>${escapeHtml(item.score || "-")}</strong>
+        <strong class="match-score ${outcome}" ${outcomeLabel ? `title="${outcomeLabel}"` : ""}>${escapeHtml(score ? `${score.home}-${score.away}` : item.score || "–")}</strong>
       </div>
       <div class="meta">${formatMatchSchedule(item)} · ${escapeHtml(item.status)}</div>
       <div class="row-actions">
         <button class="primary-button" data-open-match="${item.id}" type="button">Abrir</button>
         <button class="secondary-button" data-edit-match="${item.id}" type="button">Editar</button>
-        <button class="danger-button" data-delete-match="${item.id}" type="button">Eliminar</button>
+        <button class="danger-button subtle-danger" data-delete-match="${item.id}" type="button">Eliminar</button>
       </div>
     </article>
   `;
@@ -4725,9 +4848,13 @@ function renderSummaryTab() {
   return `
     <div class="club-statistics-page analysis-page">
       <div class="analysis-metrics">
+        ${(() => {
+          const table = currentTeam()?.standings || [];
+          const position = table.findIndex((row) => isOwnStandingsRow(row.name, currentTeam())) + 1;
+          return position ? renderMetric("Clasificación", `${position}º <small>de ${table.length}${currentTeam().standingsLabel ? ` · ${escapeHtml(currentTeam().standingsLabel)}` : ""}</small>`) : "";
+        })()}
         ${renderMetric("Puntos", stats.points)}
-        ${renderMetric("Jugados", stats.played)}
-        ${renderMetric("G · E · P", `${stats.won} · ${stats.drawn} · ${stats.lost}`)}
+        ${renderMetric("G · E · P", `${stats.won} · ${stats.drawn} · ${stats.lost} <small>(${stats.played} PJ)</small>`)}
         ${renderMetric("Goles", `${stats.goalsFor} – ${stats.goalsAgainst} <small>(${stats.goalsFor - stats.goalsAgainst >= 0 ? "+" : ""}${stats.goalsFor - stats.goalsAgainst})</small>`)}
       </div>
       <div class="analysis-grid">

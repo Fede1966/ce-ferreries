@@ -3,8 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CE Ferreries | Gestión técnica</title>
-    <link rel="stylesheet" href="styles.css?v=20261116-2" />
+    <title>CE Ferreries · Club de fútbol de Ferreries (Menorca)</title>
+    <meta name="description" content="CE Ferreries, club de fútbol de Ferreries (Menorca) desde 1923: equipos, partidos de la semana, resultados, calendario y clasificaciones de la temporada." />
+    <meta name="theme-color" content="#12213f" />
+    <link rel="icon" href="assets/ce-ferreries-crest.gif" />
+    <link rel="apple-touch-icon" href="assets/ce-ferreries-crest.gif" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CE Ferreries" />
+    <meta property="og:title" content="CE Ferreries · Temporada 2026-2027" />
+    <meta property="og:description" content="Equipos, partidos de la semana, resultados y clasificaciones del CE Ferreries." />
+    <meta property="og:image" content="https://www.ceferreries.app/assets/ce-ferreries-home-20260716.jpg" />
+    <meta property="og:url" content="https://www.ceferreries.app/" />
+    <link rel="stylesheet" href="styles.css?v=20261120-2" />
   </head>
   <body>
     <section class="landing-page" id="landing-page">
@@ -80,6 +90,53 @@
         </aside>
         </div>
       </main>
+
+      <div class="landing-sections" id="landing-sections">
+        <section class="club-figures" id="club-figures" aria-label="La temporada en cifras" hidden>
+          <div class="club-figures-inner" id="club-figures-list"></div>
+        </section>
+
+        <section class="landing-section" id="club-teams" aria-labelledby="club-teams-title" hidden>
+          <header class="landing-section-head">
+            <span class="landing-kicker">Temporada 2026-2027</span>
+            <h2 id="club-teams-title">Nuestros equipos</h2>
+            <p>Del prebenjamín a la División de Honor: clasificación, último resultado y próximo partido de cada equipo.</p>
+          </header>
+          <div class="team-grid" id="team-grid"></div>
+        </section>
+
+        <section class="landing-section club-about" aria-labelledby="club-about-title">
+          <div class="club-about-media">
+            <img src="assets/camp-sant-bartomeu.jpg" alt="Camp Municipal Sant Bartomeu de Ferreries" loading="lazy" />
+          </div>
+          <div class="club-about-text">
+            <span class="landing-kicker">El club</span>
+            <h2 id="club-about-title">Más de un siglo de fútbol en Ferreries</h2>
+            <p>El CE Ferreries nació en 1923 y en 2023 celebró su centenario. Hoy reúne a <strong id="club-about-teams">todos sus equipos</strong> de fútbol base y el primer equipo, que juegan en el Camp Municipal Sant Bartomeu.</p>
+            <ul class="club-about-facts">
+              <li><strong>1923</strong><span>Año de fundación</span></li>
+              <li><strong>Sant Bartomeu</strong><span>Nuestro campo</span></li>
+              <li><strong>Azulgrana</strong><span>Nuestros colores</span></li>
+            </ul>
+          </div>
+        </section>
+
+        <footer class="landing-footer">
+          <div class="landing-footer-brand">
+            <img src="assets/ce-ferreries-crest.gif" alt="" />
+            <div>
+              <strong>CE Ferreries</strong>
+              <span>Camp Municipal Sant Bartomeu · Ferreries (Menorca)</span>
+            </div>
+          </div>
+          <nav class="landing-footer-links" aria-label="Enlaces del pie">
+            <a href="?temporada=2026-2027&vista=squad">Equipos</a>
+            <a href="?temporada=2026-2027&vista=matches">Partidos</a>
+            <a href="?temporada=2026-2027&vista=statistics">Estadísticas</a>
+          </nav>
+          <p class="landing-footer-note">Calendarios, horarios y clasificaciones: Federació de Futbol de les Illes Balears (FFIB). © <span id="landing-year">2026</span> CE Ferreries.</p>
+        </footer>
+      </div>
     </section>
 
     <div class="app-shell" id="technical-app">
@@ -497,6 +554,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
     <script src="acta-fiche.js?v=20261021-2"></script>
-    <script src="app.js?v=20261116-3"></script>
+    <script src="app.js?v=20261120-1"></script>
   </body>
 </html>

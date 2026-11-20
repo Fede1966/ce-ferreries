@@ -4613,3 +4613,526 @@ button:focus-visible {
     margin: 0;
   }
 }
+
+/* ---------- Revisión noviembre 2026 ---------- */
+
+/* Marcador de las tarjetas de partido: nunca partido en dos líneas y con color de resultado */
+#technical-app .match-card .match-score {
+  flex: 0 0 auto;
+  min-width: 48px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--navy, #12213f);
+  background: #eef1f6;
+}
+
+#technical-app .match-card .match-score.win { color: #fff; background: #2f8f5b; }
+#technical-app .match-card .match-score.draw { color: #fff; background: #b7862a; }
+#technical-app .match-card .match-score.loss { color: #fff; background: #c0392b; }
+
+#technical-app .match-card.is-win { box-shadow: inset 4px 0 0 #2f8f5b; }
+#technical-app .match-card.is-draw { box-shadow: inset 4px 0 0 #b7862a; }
+#technical-app .match-card.is-loss { box-shadow: inset 4px 0 0 #c0392b; }
+
+/* «Eliminar» deja de competir con «Abrir» */
+#technical-app .row-actions .subtle-danger {
+  margin-left: auto;
+  color: #b42318;
+  background: transparent;
+  border: 1px solid #f1c6c2;
+  box-shadow: none;
+}
+
+#technical-app .row-actions .subtle-danger:hover {
+  color: #fff;
+  background: #b42318;
+}
+
+/* Tarjeta de próximo partido: cuenta atrás y botón alineados */
+.next-match-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Métrica con texto secundario */
+#technical-app .metric-card strong small {
+  margin-left: 4px;
+  color: var(--muted, #6b7280);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+@media (max-width: 760px) {
+  /* En el móvil el equipo ya sale en la barra superior */
+  #technical-app .active-team-context {
+    display: none;
+  }
+
+  /* Botones de la cabecera en rejilla de dos columnas, más compactos */
+  #technical-app .toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  #technical-app .toolbar-actions > button {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: .88rem;
+  }
+
+  #technical-app .toolbar-actions > button.primary-button {
+    grid-column: 1 / -1;
+  }
+
+  /* Pestañas Partidos / Calendario / Clasificación sin cortarse */
+  #technical-app .detail-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .next-match-side {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- Portada: secciones del club ---------- */
+.landing-page {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.landing-main {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 560px;
+}
+
+@media (min-width: 921px) {
+  .landing-header.landing-app-header {
+    position: fixed;
+  }
+}
+
+.landing-sections {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+/* La temporada en cifras */
+.club-figures {
+  color: #fff;
+  background: linear-gradient(110deg, #12213f 0%, #1b2d52 60%, #6d1220 100%);
+}
+
+.club-figures-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 40px);
+}
+
+.club-figure {
+  display: grid;
+  gap: 4px;
+  padding: 28px 12px;
+  text-align: center;
+}
+
+.club-figure + .club-figure {
+  border-left: 1px solid rgb(255 255 255 / 14%);
+}
+
+.club-figure strong {
+  font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.club-figure span {
+  color: rgb(255 255 255 / 72%);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* Secciones claras */
+.landing-section {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 40px);
+}
+
+.landing-section-head {
+  max-width: 640px;
+  margin-bottom: 28px;
+}
+
+.landing-section-head .landing-kicker,
+.club-about-text .landing-kicker {
+  color: var(--red);
+}
+
+.landing-section h2 {
+  margin: 0 0 10px;
+  color: #12213f;
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  letter-spacing: -.03em;
+  line-height: 1.05;
+}
+
+.landing-section-head p,
+.club-about-text p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+/* Nuestros equipos */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.team-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgb(18 33 63 / 6%);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.team-card:hover,
+.team-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: #c9d1de;
+  box-shadow: 0 14px 30px rgb(18 33 63 / 14%);
+}
+
+.team-card:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.team-card-photo {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #1b2d52 center 30% / cover no-repeat;
+}
+
+.team-card-photo.no-photo {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #12213f 0%, #1b2d52 55%, #6d1220 100%);
+}
+
+.team-card-photo.no-photo img {
+  width: 34%;
+  max-width: 96px;
+  opacity: .92;
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 35%));
+}
+
+.team-card-position {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  justify-items: center;
+  min-width: 56px;
+  padding: 6px 10px;
+  color: #12213f;
+  line-height: 1.05;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 25%);
+}
+
+.team-card-position b {
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.team-card-position small {
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.team-card-body {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px 18px;
+}
+
+.team-card-body h3 {
+  margin: 0;
+  color: #12213f;
+  font-size: 1.12rem;
+}
+
+.team-card-league {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.team-card-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.team-card-facts div {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-card-facts dt {
+  color: var(--muted);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.team-card-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: .88rem;
+}
+
+.team-card-facts dd strong {
+  flex: 0 0 auto;
+  color: #12213f;
+  text-transform: capitalize;
+}
+
+.team-card-facts .landing-result {
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 2px 6px;
+  font-size: .85rem;
+}
+
+.team-card-rival {
+  overflow: hidden;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.team-card-muted {
+  color: var(--muted);
+}
+
+/* El club */
+.club-about {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  padding-top: 0;
+}
+
+.club-about-media img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgb(18 33 63 / 18%);
+}
+
+.club-about-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-about-facts li {
+  display: grid;
+  gap: 2px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: 10px;
+}
+
+.club-about-facts strong {
+  color: #12213f;
+  font-size: 1.05rem;
+}
+
+.club-about-facts span {
+  color: var(--muted);
+  font-size: .78rem;
+}
+
+/* Pie */
+.landing-footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 18px 32px;
+  padding: 32px clamp(16px, 5vw, 76px);
+  color: rgb(255 255 255 / 80%);
+  background: #0d1522;
+}
+
+.landing-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.landing-footer-brand img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.landing-footer-brand div {
+  display: grid;
+}
+
+.landing-footer-brand strong {
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.landing-footer-brand span {
+  font-size: .85rem;
+}
+
+.landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.landing-footer-links a {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.landing-footer-links a:hover {
+  color: #f2c765;
+}
+
+.landing-footer-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  color: rgb(255 255 255 / 50%);
+  font-size: .78rem;
+}
+
+@media (max-width: 920px) {
+  .landing-main {
+    height: auto;
+    min-height: 0;
+  }
+
+  .club-figure + .club-figure {
+    border-left: 0;
+  }
+
+  .club-figures-inner {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 8px 16px;
+  }
+
+  .club-figure {
+    padding: 18px 8px;
+  }
+
+  .club-about {
+    grid-template-columns: 1fr;
+    padding-top: 0;
+  }
+
+  .club-about-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-footer {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-card {
+    transition: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .team-grid {
+    gap: 12px;
+  }
+
+  .team-card-photo.no-photo {
+    aspect-ratio: auto;
+    height: 84px;
+  }
+
+  .team-card-photo.no-photo img {
+    width: auto;
+    height: 64px;
+  }
+
+  .club-about-facts {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .club-about-facts li {
+    padding: 10px;
+  }
+
+  .club-about-facts strong {
+    font-size: .9rem;
+  }
+}
+
+.landing-header .home-nav-link {
+  font-size: 1rem;
+  font-weight: 600;
+}
