@@ -5345,3 +5345,63 @@ button:focus-visible {
 .landing-hero-compact .landing-hero-photo {
   object-position: center 30%;
 }
+
+/* Portada: invitación a bajar */
+html {
+  scroll-behavior: smooth;
+}
+
+#landing-sections {
+  scroll-margin-top: 72px;
+}
+
+.landing-scroll-cue {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: clamp(18px, 3vw, 30px);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: rgb(255 255 255 / 85%);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  transition: color .2s ease;
+}
+
+.landing-scroll-cue:hover,
+.landing-scroll-cue:focus-visible {
+  color: #f2c765;
+}
+
+.landing-scroll-cue svg {
+  animation: scroll-cue-bounce 2.2s ease-in-out infinite;
+}
+
+@keyframes scroll-cue-bounce {
+  0%, 100% { transform: translateY(0); opacity: .75; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+
+@media (max-width: 920px) {
+  /* En el móvil, a la izquierda para no chocar con el sello del centenario */
+  .landing-scroll-cue {
+    left: 20px;
+    justify-items: start;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .landing-scroll-cue svg {
+    animation: none;
+  }
+}
