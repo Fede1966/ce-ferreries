@@ -1473,6 +1473,7 @@ matchForm.addEventListener("submit", (event) => {
   }
   state.selectedMatchId = id;
   state.activeDetailTab = "plan";
+  syncFixtureFromMatch(formMatch);
   saveState();
   matchDialog.close();
   if (returnToPlayerReportsAfterMatchSave) {
@@ -3637,10 +3638,74 @@ function saveFfibFixtures(teamId, data) {
       }))
       .sort((a, b) => a.round - b.round)
   }));
-  state.fixtures = { ...(state.fixtures || {}), [teamId]: { updatedAt: new Date().toISOString(), competitions } };
+  const overrides = applyFixtureOverrides(competitions, state.fixtures?.[teamId]?.overrides);
+  state.fixtures = {
+    ...(state.fixtures || {}),
+    [teamId]: { updatedAt: new Date().toISOString(), competitions, ...(Object.keys(overrides).length ? { overrides } : {}) }
+  };
   saveState();
   if (state.activeView === "matches") render();
   return { teamId, competitions: competitions.map((c) => ({ name: c.name, jornadas: c.jornadas.length })) };
+}
+
+// ---------- Correcciones manuales de horario ----------
+// Cuando un partido cambia de día u hora y la FFIB aún no lo ha publicado, el cambio se guarda en
+// state.fixtures[teamId].overrides["league|4"] = { date, time, at } y se aplica sobre el calendario.
+// La descarga semanal de la FFIB no lo borra: solo se retira cuando la FFIB ya publica ese mismo
+// día y hora (o cuando la fecha corregida ya ha pasado).
+function fixtureKey(kind, round) {
+  return `${kind === "cup" ? "cup" : "league"}|${Number(round)}`;
+}
+
+function applyFixtureOverrides(competitions, overrides = {}) {
+  const kept = {};
+  const today = todayIso();
+  competitions.forEach((comp) => comp.jornadas.forEach((j) => {
+    const key = fixtureKey(comp.kind, j.round);
+    const o = overrides?.[key];
+    if (!o?.date) return;
+    const ffibAlreadyHasIt = j.exact?.date === o.date && (!o.time || j.exact?.time === o.time);
+    if (ffibAlreadyHasIt || o.date < addDaysIso(today, -7)) return;
+    j.exact = { ...(j.exact || {}), date: o.date, time: o.time || "" };
+    j.manual = true;
+    kept[key] = o;
+  }));
+  return kept;
+}
+
+function setFixtureOverride(teamId, kind, round, date, time) {
+  const data = state.fixtures?.[teamId];
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return false;
+  const key = fixtureKey(kind, round);
+  const jornada = data.competitions.find((comp) => comp.kind === kind)?.jornadas.find((j) => j.round === Number(round));
+  if (!jornada) return false;
+  if (jornada.exact?.date === date && (jornada.exact?.time || "") === (time || "")) return false;
+  data.overrides = { ...(data.overrides || {}), [key]: { date, time: time || "", at: new Date().toISOString() } };
+  jornada.exact = { ...(jornada.exact || {}), date, time: time || "" };
+  jornada.manual = true;
+  return true;
+}
+
+// Al editar la fecha u hora de un partido de liga o copa, el calendario (y la portada) se corrigen también
+function syncFixtureFromMatch(matchItem) {
+  if (!matchItem?.teamId || !["league", "cup"].includes(matchItem.competition || "league") || !Number(matchItem.round)) return false;
+  if (matchItem.status === "Jugado") return false;
+  return setFixtureOverride(matchItem.teamId, matchItem.competition || "league", matchItem.round, matchItem.date, matchItem.time);
+}
+
+function askFixtureOverride(kind, round) {
+  const f = teamFixtures().find((item) => item.kind === kind && item.round === Number(round));
+  if (!f) return;
+  const date = prompt(`Nueva fecha del partido contra ${f.rival} (aaaa-mm-dd):`, f.exact?.date || f.when || "");
+  if (date === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) { alert("La fecha tiene que ir así: 2026-11-22"); return; }
+  const time = prompt("Nueva hora (hh:mm). Déjalo vacío si aún no se sabe:", f.exact?.time || "");
+  if (time === null) return;
+  if (time.trim() && !/^\d{1,2}:\d{2}$/.test(time.trim())) { alert("La hora tiene que ir así: 16:30"); return; }
+  if (setFixtureOverride(state.activeTeamId, kind, round, date.trim(), time.trim())) {
+    saveState();
+    render();
+  }
 }
 
 // "PEÑA DEPORTIVA \"A\"" → "Peña Deportiva A"; "SANT BARTOMEU DE FERRERIES" → "Sant Bartomeu de Ferreries"
@@ -3754,7 +3819,7 @@ function calendarHtml() {
             const label = played ? "" : isNext ? "Próximo" : overdue ? "Pendiente" : "";
             return `<tr class="${isNext ? "calendar-next" : ""} ${played ? "" : "calendar-future"}">
               <td><strong>${f.round}</strong></td>
-              <td>${escapeHtml(f.exact?.date ? formatDate(f.exact.date) : f.when ? formatDate(f.when) : "—")}${f.exact?.time ? ` · ${escapeHtml(f.exact.time)}` : ""}</td>
+              <td>${escapeHtml(f.exact?.date ? formatDate(f.exact.date) : f.when ? formatDate(f.when) : "—")}${f.exact?.time ? ` · ${escapeHtml(f.exact.time)}` : ""}${f.manual ? ` <span class="calendar-manual" title="Horario corregido a mano en la app">cambiado</span>` : ""}${!played && !f.bye && canEdit() && f.when >= today ? ` <button class="link-button" type="button" data-change-fixture="${escapeAttr(`${f.kind}|${f.round}`)}">Cambiar</button>` : ""}</td>
               <td>${f.bye ? `<em class="meta">Descansa</em>` : escapeHtml(f.rival)}</td>
               <td><span class="calendar-side">${f.bye ? "" : f.ownSide === "home" ? "Casa" : "Fuera"}</span></td>
               <td>${result ? `<span class="result ${result.letter === "E" ? "draw" : result.letter === "P" ? "loss" : ""}">${result.letter}</span> ${result.own}–${result.other}` : label ? `<span class="calendar-state ${overdue ? "overdue" : ""}">${label}</span>` : "—"}</td>
@@ -4090,6 +4155,12 @@ function prepareFixtureMatch(key) {
 function bindFixtureActions(bindOpenButtons = false) {
   views.matches.querySelectorAll("[data-prepare-fixture]").forEach((button) => {
     button.addEventListener("click", () => prepareFixtureMatch(button.dataset.prepareFixture));
+  });
+  views.matches.querySelectorAll("[data-change-fixture]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const [kind, round] = button.dataset.changeFixture.split("|");
+      askFixtureOverride(kind, Number(round));
+    });
   });
   if (!bindOpenButtons) return; // en la pestaña Partidos ya se enlazan todos los «Abrir»
   views.matches.querySelectorAll(".next-match-card [data-open-match], .calendar-panel [data-open-match]").forEach((button) => {

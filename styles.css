@@ -5638,3 +5638,28 @@ html {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* Horario corregido a mano (la FFIB todavía no lo ha publicado) */
+.calendar-manual {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #fbf0cf;
+  color: #7a5b00;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.link-button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent, #a3162b);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
