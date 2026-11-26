@@ -1987,19 +1987,15 @@ async function pushRemoteState(throwOnError = false) {
 let knownRemoteModifiedAt = null;
 
 async function fetchRemoteNewSeasonModifiedAt() {
-  const rows = await supabaseRequest(
-    `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=lineup->__seasonState->lastModifiedAt`
-  );
-  return Number(rows?.[0]?.lastModifiedAt) || 0;
+  return Number(await supabaseRpc("ferreries_modificado")) || 0;
 }
 
 async function pullNewSeasonRemoteState() {
   try {
     isPullingRemote = true;
-    const rows = await supabaseRequest(
-      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=*`
-    );
-    const remoteState = rows?.[0]?.lineup?.__seasonState;
+    // La base de datos entrega a cada cuenta solo lo que puede ver (ver supabase-permisos.sql)
+    const remoteLineup = await supabaseRpc("ferreries_estado");
+    const remoteState = remoteLineup?.__seasonState;
     if (remoteState) knownRemoteModifiedAt = Number(remoteState.lastModifiedAt) || 0;
     if (!remoteState) {
       isPullingRemote = false;
@@ -2009,7 +2005,13 @@ async function pullNewSeasonRemoteState() {
 
     const remoteModifiedAt = Number(remoteState.lastModifiedAt) || 0;
     const localModifiedAt = Number(state.lastModifiedAt) || 0;
-    if (remoteModifiedAt > localModifiedAt) {
+    // Sin sesión siempre se usa la versión pública de la base de datos: así también se borra de este
+    // navegador cualquier copia completa que se hubiera guardado antes de limitar los permisos.
+    const isVisitor = !authSession?.access_token;
+    if (isVisitor) {
+      try { localStorage.removeItem(SEASON_BACKUP_KEYS[NEW_SEASON]); } catch { /* sin almacenamiento */ }
+    }
+    if (isVisitor || remoteModifiedAt > localModifiedAt) {
       // La pantalla que estaba viendo esta persona (o la que pide el enlace) manda sobre la que
       // quedó guardada en la base de datos desde otro dispositivo.
       const localView = Object.fromEntries(VIEW_STATE_KEYS.map((key) => [key, state[key]]));
@@ -2049,41 +2051,21 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
   if (!hasSupabaseConfig() || !canEdit()) { console.warn("[Sync] pushNewSeasonRemoteState omitido: no config o no autenticado"); return; }
   try {
     setSyncStatus("syncing", "Guardando...");
-    if (knownRemoteModifiedAt !== null) {
-      const remoteModifiedAt = await fetchRemoteNewSeasonModifiedAt();
-      if (remoteModifiedAt > knownRemoteModifiedAt) {
-        // Alguien guardó después de que cargáramos (otra pestaña o la importación automática de actas):
-        // no se sobrescribe para no borrar sus cambios.
-        setSyncStatus("error", "Hay cambios nuevos guardados desde otro sitio. Recarga la página antes de seguir editando.");
-        console.warn("[Sync] Guardado cancelado: la base de datos tiene una versión más reciente.");
-        if (throwOnError) throw new Error("Versión remota más reciente");
-        return;
-      }
-    }
     console.log("[Sync] Guardando estado en Supabase...");
-    await supabaseUpsert(
-      "matches",
-      [{
-        id: NEW_SEASON_APP_STATE_MATCH_ID,
-        round: 0,
-        home: "Estado temporada 2026-2027",
-        away: "Estado temporada 2026-2027",
-        date: null,
-        status: "Sistema",
-        score: "",
-        updated_at: new Date().toISOString()
-      }],
-      "id"
-    );
-    await supabaseUpsert(
-      "lineups",
-      [{
-        match_id: NEW_SEASON_APP_STATE_MATCH_ID,
-        lineup: { __seasonState: state, __results: playedResultsIndex(), __public: publicClubSummary() },
-        updated_at: new Date().toISOString()
-      }],
-      "match_id"
-    );
+    // La base de datos comprueba el permiso (un entrenador solo guarda su equipo) y que nadie haya
+    // guardado una versión más reciente desde que cargamos.
+    const result = await supabaseRpc("ferreries_guardar", {
+      p_lineup: { __seasonState: state, __results: playedResultsIndex(), __public: publicClubSummary() },
+      p_esperado: knownRemoteModifiedAt
+    });
+    if (result?.conflicto) {
+      // Alguien guardó después de que cargáramos (otra pestaña o la importación automática de actas):
+      // no se sobrescribe para no borrar sus cambios.
+      setSyncStatus("error", "Hay cambios nuevos guardados desde otro sitio. Recarga la página antes de seguir editando.");
+      console.warn("[Sync] Guardado cancelado: la base de datos tiene una versión más reciente.");
+      if (throwOnError) throw new Error("Versión remota más reciente");
+      return;
+    }
     knownRemoteModifiedAt = Number(state.lastModifiedAt) || knownRemoteModifiedAt;
     setSyncStatus("ok", "✓ Guardado");
     console.log("[Sync] Estado guardado en Supabase ✓");
@@ -2094,11 +2076,15 @@ async function pushNewSeasonRemoteState(throwOnError = false) {
   }
 }
 
+// Llama a una función de la base de datos con la sesión de quien está usando la app
+// (sin sesión, como visitante).
+async function supabaseRpc(name, args = {}) {
+  return supabaseRequest(`rpc/${name}`, { method: "POST", body: JSON.stringify(args) });
+}
+
 async function supabaseRequest(path, options = {}) {
-  const method = (options.method || "GET").toUpperCase();
-  const authorizationToken = method === "GET"
-    ? getSupabaseAnonKey()
-    : await getValidAccessToken();
+  // Siempre con la sesión de quien usa la app: la base de datos decide qué puede leer cada uno
+  const authorizationToken = await getValidAccessToken();
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
     headers: {
@@ -4018,9 +4004,9 @@ async function loadLandingResults(results, teams) {
   try {
     if (!Array.isArray(results)) {
       // Todavía no se ha guardado el resumen: se calcula una vez a partir de todos los partidos
-      const rows = await supabaseRequest(`lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=matches:lineup->__seasonState->matches`);
+      const remoteLineup = await supabaseRpc("ferreries_estado");
       const names = new Map(teams.map((t) => [t.id, t.name]));
-      results = (rows?.[0]?.matches || [])
+      results = (remoteLineup?.__seasonState?.matches || [])
         .filter((m) => m.status === "Jugado" && m.date && parseScore(m.score))
         .map((m) => ({ ...m, side: m.away === names.get(m.teamId) ? "away" : "home" }));
     }
@@ -4043,9 +4029,7 @@ async function loadLandingWeekMatches() {
   const box = document.querySelector("#landing-weekend");
   if (!box || !hasSupabaseConfig()) return;
   try {
-    const rows = await supabaseRequest(
-      `lineups?match_id=eq.${encodeURIComponent(NEW_SEASON_APP_STATE_MATCH_ID)}&select=fixtures:lineup->__seasonState->fixtures,teams:lineup->__seasonState->teams,results:lineup->__results,public:lineup->__public`
-    );
+    const rows = [await supabaseRpc("ferreries_portada")];
     const fixtures = rows?.[0]?.fixtures;
     const teams = rows?.[0]?.teams || [];
     fillLandingTeamSelector(teams);
