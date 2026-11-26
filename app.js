@@ -1242,7 +1242,7 @@ toolbarTeamSelector.addEventListener("change", (event) => {
   state.activeTeamId = event.target.value;
   state.selectedPlayerId = activePlayers()[0]?.id || "";
   state.selectedMatchId = activeMatches()[0]?.id || "";
-  saveState();
+  saveViewState();
   render();
 });
 
@@ -1767,6 +1767,18 @@ function recoverCadeteSeasonFromLocalBackups() {
   return recovered.length + recoveredActas + recoveredReports;
 }
 
+// Cambiar de pantalla, de equipo o de pestaña no es un cambio de datos: se recuerda solo en este
+// navegador y no se sube a la base de datos. Así navegar no pisa lo que guardan otros entrenadores.
+function saveViewState() {
+  try {
+    localStorage.setItem(SEASON_STORAGE_KEYS[activeSeason], JSON.stringify(state));
+  } catch (error) {
+    console.warn("No se pudo recordar la pantalla actual", error);
+  }
+}
+
+const VIEW_STATE_KEYS = ["activeView", "activeTeamId", "selectedMatchId", "selectedPlayerId", "activeDetailTab", "activePlayerTab"];
+
 function saveState() {
   state.lastModifiedAt = Date.now();
   const storageKey = SEASON_STORAGE_KEYS[activeSeason];
@@ -1998,9 +2010,19 @@ async function pullNewSeasonRemoteState() {
     const remoteModifiedAt = Number(remoteState.lastModifiedAt) || 0;
     const localModifiedAt = Number(state.lastModifiedAt) || 0;
     if (remoteModifiedAt > localModifiedAt) {
+      // La pantalla que estaba viendo esta persona (o la que pide el enlace) manda sobre la que
+      // quedó guardada en la base de datos desde otro dispositivo.
+      const localView = Object.fromEntries(VIEW_STATE_KEYS.map((key) => [key, state[key]]));
       localStorage.setItem(SEASON_STORAGE_KEYS[NEW_SEASON], JSON.stringify(remoteState));
       state = loadState();
       repairMissingTeams();
+      VIEW_STATE_KEYS.forEach((key) => {
+        if (localView[key] !== undefined) state[key] = localView[key];
+      });
+      if (!state.teams.some((item) => item.id === state.activeTeamId)) state.activeTeamId = state.teams[0]?.id;
+      if (pendingRequestedTeam) applyRequestedTeam();
+      if (["squad", "matches", "standings", "statistics"].includes(requestedView)) state.activeView = requestedView;
+      saveViewState();
       render();
     } else if (localModifiedAt > remoteModifiedAt) {
       isPullingRemote = false;
@@ -2547,7 +2569,7 @@ function parseRemotePlan(item) {
 
 function setView(view) {
   state.activeView = view;
-  saveState();
+  saveViewState();
   render();
   syncViewInUrl(view);
 }
@@ -3197,7 +3219,7 @@ function renderPlayerDetail() {
   views.playerDetail.querySelectorAll("[data-player-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activePlayerTab = button.dataset.playerTab;
-      saveState();
+      saveViewState();
       render();
     });
   });
@@ -4373,7 +4395,7 @@ function renderMatchDetail() {
   views.detail.querySelectorAll("[data-detail-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeDetailTab = button.dataset.detailTab;
-      saveState();
+      saveViewState();
       render();
     });
   });
