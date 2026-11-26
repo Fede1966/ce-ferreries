@@ -3102,6 +3102,12 @@ function updateStaffPhotoPreview(photo) {
   staffPhotoPreview.style.backgroundImage = photo ? `url("${photo}")` : "";
 }
 
+// Una fecha de nacimiento en 1 de enero casi siempre es «solo se sabe el año»: se muestra el año, no una edad inventada.
+function birthYearOnly(item) {
+  if (/^\d{4}-01-01$/.test(item.birthdate || "")) return Number(item.birthdate.slice(0, 4));
+  return Number.isInteger(item.nacido) ? item.nacido : null;
+}
+
 function renderPlayerCard(item) {
   const photoStyle = item.photo ? `style="background-image:url('${escapeAttr(item.photo)}')"` : "";
   return `
@@ -3112,7 +3118,7 @@ function renderPlayerCard(item) {
           <h3>${escapeHtml(item.name)}</h3>
           <div class="meta">${item.number ? `Dorsal ${item.number}` : "Dorsal pendiente"} · ${escapeHtml(item.position || "Por definir")}</div>
           <div class="meta">Lateralidad: ${escapeHtml(item.laterality || "Por definir")}</div>
-          ${item.birthdate ? `<div class="meta">Nac. ${formatDate(item.birthdate)}</div>` : Number.isInteger(item.edad) ? `<div class="meta">${item.edad} años</div>` : canEdit() ? `<div class="meta">Nac. pendiente</div>` : ""}
+          ${birthYearOnly(item) ? `<div class="meta">Nacido en ${birthYearOnly(item)}</div>` : item.birthdate ? `<div class="meta">Nac. ${formatDate(item.birthdate)}</div>` : Number.isInteger(item.edad) ? `<div class="meta">${item.edad} años</div>` : canEdit() ? `<div class="meta">Nac. pendiente</div>` : ""}
         </div>
       </div>
       <div class="row-actions">
@@ -3154,8 +3160,8 @@ function renderPlayerDetail() {
         </div>
         <div class="player-info-grid">
           ${renderPlayerInfo("Nombre completo", item.name)}
-          ${item.birthdate ? renderPlayerInfo("Fecha de nacimiento", formatDate(item.birthdate)) : ""}
-          ${item.birthdate ? renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`) : Number.isInteger(item.edad) ? renderPlayerInfo("Edad", `${item.edad} años`) : ""}
+          ${birthYearOnly(item) ? renderPlayerInfo("Año de nacimiento", birthYearOnly(item)) : item.birthdate ? renderPlayerInfo("Fecha de nacimiento", formatDate(item.birthdate)) : ""}
+          ${birthYearOnly(item) ? "" : item.birthdate ? renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`) : Number.isInteger(item.edad) ? renderPlayerInfo("Edad", `${item.edad} años`) : ""}
           ${renderPlayerInfo("Lateralidad", item.laterality || "Diestro")}
           ${renderPlayerInfo("Posición", item.position)}
           ${renderPlayerInfo("Partidos registrados", activeMatches().length)}
@@ -6155,8 +6161,8 @@ async function downloadPlayerPdf(item) {
             <div class="meta">${escapeHtml(printableTeamName.toUpperCase())} · FICHA TÉCNICA</div>
             <h1>${escapeHtml(item.name)}</h1>
             <div class="info">
-              ${renderPdfInfo("Fecha de nacimiento", formatDate(item.birthdate))}
-              ${renderPdfInfo("Edad", `${calculateAge(item.birthdate)} años`)}
+              ${birthYearOnly(item) ? renderPdfInfo("Año de nacimiento", birthYearOnly(item)) : renderPdfInfo("Fecha de nacimiento", formatDate(item.birthdate))}
+              ${birthYearOnly(item) ? "" : renderPdfInfo("Edad", `${calculateAge(item.birthdate)} años`)}
               ${renderPdfInfo("Posición", item.position)}
               ${renderPdfInfo("Lateralidad", item.laterality || "Diestro")}
               ${renderPdfInfo("Dorsal", item.number)}

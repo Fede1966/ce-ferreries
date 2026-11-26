@@ -55,9 +55,12 @@ language sql stable set search_path = public as $$
       -- que alimentan las estadísticas públicas. El texto, la nota y el vídeo del entrenador no.
       select jsonb_agg(case when p ->> 'teamId' = p_equipo then p
                             else (p - 'birthdate' - 'ratings' - 'description' - 'career') || jsonb_build_object(
-                              -- En lugar de la fecha de nacimiento, solo los años que tiene
-                              'edad', case when p ->> 'birthdate' ~ '^\d{4}-\d{2}-\d{2}$'
+                              -- En lugar de la fecha de nacimiento, solo los años que tiene. Si la fecha es un
+                              -- 1 de enero, normalmente solo se sabe el año: se da el año y no una edad que no sería real.
+                              'edad', case when p ->> 'birthdate' ~ '^\d{4}-\d{2}-\d{2}$' and p ->> 'birthdate' !~ '-01-01$'
                                            then date_part('year', age(current_date, (p ->> 'birthdate')::date))::int end,
+                              'nacido', case when p ->> 'birthdate' ~ '^\d{4}-01-01$'
+                                             then left(p ->> 'birthdate', 4)::int end,
                               'reports', coalesce((
                               select jsonb_object_agg(k, case when jsonb_typeof(v) = 'object' then v - 'text' - 'rating' - 'youtube' else '{}'::jsonb end)
                               from jsonb_each(case when jsonb_typeof(p -> 'reports') = 'object' then p -> 'reports' else '{}'::jsonb end) as e(k, v)), '{}'::jsonb))
