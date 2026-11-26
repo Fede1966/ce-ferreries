@@ -3,7 +3,7 @@
 -- Toda la temporada vive en una fila de public.lineups (match_id = '__app_state_2026_2027__').
 -- Nadie la lee ni la escribe directamente: se hace con estas funciones, que entregan a cada
 -- persona solo lo que le toca.
---   · Visitante sin sesión: lo público (sin fecha de nacimiento, valoraciones, texto de informes, plan de partido,
+--   · Visitante sin sesión: lo público (con la edad pero sin fecha de nacimiento, valoraciones, texto de informes, plan de partido,
 --     notas ni vídeos internos).
 --   · Entrenador: lo público + todo lo de su equipo. Solo puede guardar su equipo.
 --   · Coordinador y administrador: todo.
@@ -48,13 +48,17 @@ $$;
 
 -- 2. Versión pública de la temporada (el equipo indicado se entrega completo) -------------------
 create or replace function public.ferreries_filtrar(s jsonb, p_equipo text) returns jsonb
-language sql immutable set search_path = public as $$
+language sql stable set search_path = public as $$
   select s || jsonb_build_object(
     'players', coalesce((
       -- De los informes de otros equipos solo quedan los números (minutos, goles, tarjetas...),
       -- que alimentan las estadísticas públicas. El texto, la nota y el vídeo del entrenador no.
       select jsonb_agg(case when p ->> 'teamId' = p_equipo then p
-                            else (p - 'birthdate' - 'ratings' - 'description' - 'career') || jsonb_build_object('reports', coalesce((
+                            else (p - 'birthdate' - 'ratings' - 'description' - 'career') || jsonb_build_object(
+                              -- En lugar de la fecha de nacimiento, solo los años que tiene
+                              'edad', case when p ->> 'birthdate' ~ '^\d{4}-\d{2}-\d{2}$'
+                                           then date_part('year', age(current_date, (p ->> 'birthdate')::date))::int end,
+                              'reports', coalesce((
                               select jsonb_object_agg(k, case when jsonb_typeof(v) = 'object' then v - 'text' - 'rating' - 'youtube' else '{}'::jsonb end)
                               from jsonb_each(case when jsonb_typeof(p -> 'reports') = 'object' then p -> 'reports' else '{}'::jsonb end) as e(k, v)), '{}'::jsonb))
                        end order by o)

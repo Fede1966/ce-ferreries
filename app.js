@@ -3112,7 +3112,7 @@ function renderPlayerCard(item) {
           <h3>${escapeHtml(item.name)}</h3>
           <div class="meta">${item.number ? `Dorsal ${item.number}` : "Dorsal pendiente"} · ${escapeHtml(item.position || "Por definir")}</div>
           <div class="meta">Lateralidad: ${escapeHtml(item.laterality || "Por definir")}</div>
-          ${item.birthdate ? `<div class="meta">Nac. ${formatDate(item.birthdate)}</div>` : canEdit() ? `<div class="meta">Nac. pendiente</div>` : ""}
+          ${item.birthdate ? `<div class="meta">Nac. ${formatDate(item.birthdate)}</div>` : Number.isInteger(item.edad) ? `<div class="meta">${item.edad} años</div>` : canEdit() ? `<div class="meta">Nac. pendiente</div>` : ""}
         </div>
       </div>
       <div class="row-actions">
@@ -3155,7 +3155,7 @@ function renderPlayerDetail() {
         <div class="player-info-grid">
           ${renderPlayerInfo("Nombre completo", item.name)}
           ${item.birthdate ? renderPlayerInfo("Fecha de nacimiento", formatDate(item.birthdate)) : ""}
-          ${item.birthdate ? renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`) : ""}
+          ${item.birthdate ? renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`) : Number.isInteger(item.edad) ? renderPlayerInfo("Edad", `${item.edad} años`) : ""}
           ${renderPlayerInfo("Lateralidad", item.laterality || "Diestro")}
           ${renderPlayerInfo("Posición", item.position)}
           ${renderPlayerInfo("Partidos registrados", activeMatches().length)}
