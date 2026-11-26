@@ -3111,7 +3111,7 @@ function renderPlayerCard(item) {
           <h3>${escapeHtml(item.name)}</h3>
           <div class="meta">${item.number ? `Dorsal ${item.number}` : "Dorsal pendiente"} · ${escapeHtml(item.position || "Por definir")}</div>
           <div class="meta">Lateralidad: ${escapeHtml(item.laterality || "Por definir")}</div>
-          <div class="meta">Nac. ${item.birthdate ? formatDate(item.birthdate) : "pendiente"}</div>
+          ${item.birthdate ? `<div class="meta">Nac. ${formatDate(item.birthdate)}</div>` : canEdit() ? `<div class="meta">Nac. pendiente</div>` : ""}
         </div>
       </div>
       <div class="row-actions">
@@ -3153,8 +3153,8 @@ function renderPlayerDetail() {
         </div>
         <div class="player-info-grid">
           ${renderPlayerInfo("Nombre completo", item.name)}
-          ${renderPlayerInfo("Fecha de nacimiento", formatDate(item.birthdate))}
-          ${renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`)}
+          ${item.birthdate ? renderPlayerInfo("Fecha de nacimiento", formatDate(item.birthdate)) : ""}
+          ${item.birthdate ? renderPlayerInfo("Edad", `${calculateAge(item.birthdate)} años`) : ""}
           ${renderPlayerInfo("Lateralidad", item.laterality || "Diestro")}
           ${renderPlayerInfo("Posición", item.position)}
           ${renderPlayerInfo("Partidos registrados", activeMatches().length)}
