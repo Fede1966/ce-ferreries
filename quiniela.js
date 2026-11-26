@@ -141,7 +141,8 @@
       : `${j.nombre} · se puede rellenar hasta el ${fmtDateTime(j.cierre)}`;
     const sp = j.patrocinador || {};
     $("q-sponsor").hidden = !sp.nombre && !sp.premio;
-    $("q-sponsor-name").textContent = sp.nombre ? `Patrocinada por ${sp.nombre}` : "Patrocinador por confirmar";
+    $("q-sponsor-label").textContent = sp.nombre ? "Patrocinada por" : "";
+    $("q-sponsor-name").textContent = sp.nombre || "Patrocinador por confirmar";
     $("q-sponsor-prize").textContent = sp.premio ? `Premio: ${sp.premio}` : "";
     const logo = $("q-sponsor-logo");
     logo.textContent = "";
@@ -185,7 +186,7 @@
     if (!j) return;
     const readOnly = !open;
     const sel = readOnly && viewing ? viewing.picks : picks;
-    $("q-slip-title").textContent = readOnly ? `Quiniela de ${viewing?.alias || ""}` : `Marca 1, X o 2 en los ${j.partidos.length} partidos`;
+    $("q-slip-title").textContent = readOnly ? `Quiniela de ${viewing?.alias || ""}` : (j.partidos.length === 1 ? "Marca 1, X o 2 en el partido" : `Marca 1, X o 2 en los ${j.partidos.length} partidos`);
     $("q-rows").innerHTML = slipRows(j, sel, "pk", { disabled: readOnly, showResult: readOnly });
     const first = j.partidos[0];
     $("q-first").textContent = first ? `${first.local} – ${first.visitante}` : "";
