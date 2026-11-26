@@ -6,15 +6,19 @@ export const SUPABASE_ANON_KEY =
 export const STATE_ID = "__app_state_2026_2027__";
 const BUCKET = "player-photos";
 
-export async function leerEstado() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/lineups?match_id=eq.${encodeURIComponent(STATE_ID)}&select=lineup,updated_at`, {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+// Con token (cuenta del club) se recibe la temporada completa; sin token, solo la versión pública.
+// Los permisos los aplica la base de datos (ver supabase-permisos.sql).
+export async function leerEstado(token = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ferreries_estado`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token || SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
+    body: "{}"
   });
   if (!res.ok) throw new Error(`Supabase (lectura) respondió ${res.status}`);
-  const filas = await res.json();
-  const state = filas?.[0]?.lineup?.__seasonState;
+  const state = (await res.json())?.__seasonState;
   if (!state) throw new Error("No se encontró el estado de la temporada 2026-2027");
-  return { state, updatedAt: filas[0].updated_at };
+  // «updatedAt» es la marca de versión que se usa al guardar para no pisar cambios de otro
+  return { state, updatedAt: Number(state.lastModifiedAt) || 0, completo: Boolean(token) };
 }
 
 export async function iniciarSesion(email, password) {
@@ -49,23 +53,16 @@ export async function subirActa(token, ruta, bytes) {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${ruta.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-// Guarda solo si nadie ha cambiado el estado desde que lo leímos (si no, devuelve false)
-export async function guardarEstado(token, state, updatedAtLeido) {
-  const ahora = new Date().toISOString();
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/lineups?match_id=eq.${encodeURIComponent(STATE_ID)}&updated_at=eq.${encodeURIComponent(updatedAtLeido)}`,
-    {
-      method: "PATCH",
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify({ lineup: { __seasonState: state }, updated_at: ahora })
-    }
-  );
+// Guarda solo si nadie ha cambiado el estado desde que lo leímos (si no, devuelve false).
+// La base de datos comprueba además que la cuenta tenga permiso.
+export async function guardarEstado(token, state, versionLeida) {
+  if (!token) throw new Error("Para guardar hace falta iniciar sesión con una cuenta del club");
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ferreries_guardar`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_lineup: { __seasonState: state }, p_esperado: versionLeida })
+  });
   if (!res.ok) throw new Error(`Supabase (guardado) respondió ${res.status}: ${await res.text()}`);
-  const filas = await res.json();
-  return Array.isArray(filas) && filas.length === 1;
+  const resultado = await res.json();
+  return Boolean(resultado?.ok);
 }

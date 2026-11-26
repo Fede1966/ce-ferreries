@@ -309,7 +309,7 @@ async function importar() {
   const subidas = new Map(); // acta -> {url, path, fileName} (para no subir dos veces si hay que repetir)
 
   for (let intento = 1; intento <= 3; intento++) {
-    const leido = await leerEstado();
+    const leido = await leerEstado(token);
     state = aplicarSimulacro(leido.state);
     const anadidos = [], dudas = [], notas = [...avisos];
     for (const cand of candidatos) {
@@ -372,7 +372,7 @@ async function importar() {
     };
     state.lastModifiedAt = Date.now();
     if (await guardarEstado(token, state, leido.updatedAt)) {
-      const comprobado = await leerEstado();
+      const comprobado = await leerEstado(token);
       const ids = new Set(comprobado.state.matches.map((m) => String(m.ffibActa || "")));
       const faltan = anadidos.length - candidatos.filter((c) => ids.has(String(c.partido.acta))).length;
       log("");

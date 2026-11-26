@@ -177,3 +177,20 @@ revoke all on function public.ferreries_guardar(jsonb, bigint) from public, anon
 grant execute on function public.ferreries_guardar(jsonb, bigint) to authenticated;
 grant execute on function public.ferreries_estado(), public.ferreries_modificado(), public.ferreries_portada(),
   public.ferreries_mi_rol(), public.ferreries_mi_equipo() to anon, authenticated;
+
+-- 5. Cierre del acceso directo a las tablas -----------------------------------------------------
+-- Solo el administrador lee o escribe las tablas directamente (temporada 2025-2026 incluida).
+-- El resto pasa por las funciones de arriba.
+do $$
+declare t text;
+begin
+  foreach t in array array['players', 'matches', 'lineups', 'game_plans'] loop
+    execute format('drop policy if exists "lectura publica" on public.%I', t);
+    execute format('drop policy if exists "insert con sesion" on public.%I', t);
+    execute format('drop policy if exists "update con sesion" on public.%I', t);
+    execute format('drop policy if exists "delete con sesion" on public.%I', t);
+    execute format('drop policy if exists "solo administrador" on public.%I', t);
+    execute format('create policy "solo administrador" on public.%I for all to authenticated using (public.ferreries_mi_rol() = ''admin'') with check (public.ferreries_mi_rol() = ''admin'')', t);
+  end loop;
+end
+$$;
