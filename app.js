@@ -639,7 +639,7 @@ createMatchActaInput.addEventListener("change", async () => {
   const ownName = currentTeam().name;
   const competitionType = /^\s*copa/i.test(parsed.competition) ? "cup" : /amistos/i.test(parsed.competition) ? "friendly" : "league";
   const duplicate = activeMatches().find((item) =>
-    (parsed.round && item.round === parsed.round && (item.competition || "league") === competitionType && competitionType !== "friendly")
+    (parsed.round && item.round === parsed.round && (item.competition || "league") === competitionType && competitionType !== "friendly" && sameJornadaDate(item.date, isoDate))
     || (item.date && item.date === isoDate && normalizeSearchText(ownSide === "home" ? item.away : item.home) === normalizeSearchText(opponent)));
   let matchItem = duplicate;
   if (duplicate) {
@@ -806,7 +806,7 @@ function buildBulkPlan(items) {
       if (seen.has(key)) { plan.errors.push(`${item.file.name}: repetida en este lote (${opponent}, jornada ${parsed.round}); se ignora.`); return; }
       seen.add(key);
       const existing = activeMatches().find((m) =>
-        ((m.competition || "league") === competition && competition !== "friendly" && m.round === parsed.round)
+        ((m.competition || "league") === competition && competition !== "friendly" && m.round === parsed.round && sameJornadaDate(m.date, isoDate))
         || (m.date && m.date === isoDate && normalizeSearchText(ownSide === "home" ? m.away : m.home) === normalizeSearchText(opponent)));
       const records = computeOwnActaRecords(parsed, ownSide, duration, isQuarterTeam(state.activeTeamId));
       const players = [...records.entries()].map(([actaName, record]) => ({ actaName, record, entry: resolve(actaName, record.num) }));
@@ -3661,6 +3661,21 @@ function saveFfibFixtures(teamId, data) {
 // state.fixtures[teamId].overrides["league|4"] = { date, time, at } y se aplica sobre el calendario.
 // La descarga semanal de la FFIB no lo borra: solo se retira cuando la FFIB ya publica ese mismo
 // día y hora (o cuando la fecha corregida ya ha pasado).
+// Un equipo puede jugar dos ligas en la misma temporada (primera fase y liga, como los infantiles):
+// la jornada 1 de una no es la jornada 1 de la otra. Dos partidos son la misma jornada si coinciden
+// competición y número y, cuando ambos tienen fecha, se juegan con menos de 3 semanas de diferencia.
+function sameJornadaDate(a, b) {
+  if (!a || !b) return true;
+  return Math.abs(new Date(`${a}T12:00:00`) - new Date(`${b}T12:00:00`)) <= 21 * 864e5;
+}
+
+// Jornada del calendario por competición y número; si hay varias (dos fases), la más próxima a hoy en adelante
+function findFixture(kind, round) {
+  const candidates = teamFixtures().filter((item) => item.kind === kind && item.round === Number(round));
+  const today = todayIso();
+  return candidates.find((item) => item.when && item.when >= addDaysIso(today, -3)) || candidates[0];
+}
+
 function fixtureKey(kind, round) {
   return `${kind === "cup" ? "cup" : "league"}|${Number(round)}`;
 }
@@ -3671,7 +3686,7 @@ function applyFixtureOverrides(competitions, overrides = {}) {
   competitions.forEach((comp) => comp.jornadas.forEach((j) => {
     const key = fixtureKey(comp.kind, j.round);
     const o = overrides?.[key];
-    if (!o?.date) return;
+    if (!o?.date || !sameJornadaDate(j.exact?.date || j.date, o.date)) return;
     const ffibAlreadyHasIt = j.exact?.date === o.date && (!o.time || j.exact?.time === o.time);
     if (ffibAlreadyHasIt || o.date < addDaysIso(today, -7)) return;
     j.exact = { ...(j.exact || {}), date: o.date, time: o.time || "" };
@@ -3685,7 +3700,9 @@ function setFixtureOverride(teamId, kind, round, date, time) {
   const data = state.fixtures?.[teamId];
   if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return false;
   const key = fixtureKey(kind, round);
-  const jornada = data.competitions.find((comp) => comp.kind === kind)?.jornadas.find((j) => j.round === Number(round));
+  const jornada = data.competitions.filter((comp) => comp.kind === kind)
+    .flatMap((comp) => comp.jornadas.filter((j) => j.round === Number(round)))
+    .find((j) => sameJornadaDate(j.exact?.date || j.date, date));
   if (!jornada) return false;
   if (jornada.exact?.date === date && (jornada.exact?.time || "") === (time || "")) return false;
   data.overrides = { ...(data.overrides || {}), [key]: { date, time: time || "", at: new Date().toISOString() } };
@@ -3702,7 +3719,7 @@ function syncFixtureFromMatch(matchItem) {
 }
 
 function askFixtureOverride(kind, round) {
-  const f = teamFixtures().find((item) => item.kind === kind && item.round === Number(round));
+  const f = findFixture(kind, round);
   if (!f) return;
   const date = prompt(`Nueva fecha del partido contra ${f.rival} (aaaa-mm-dd):`, f.exact?.date || f.when || "");
   if (date === null) return;
@@ -3743,7 +3760,8 @@ function teamFixtures() {
   if (!data) return [];
   return data.competitions.flatMap((comp) => comp.jornadas.map((j) => {
     const ownSide = fixtureOwnSide(j);
-    const appMatch = activeMatches().find((m) => (m.competition || "league") === comp.kind && Number(m.round) === j.round);
+    const appMatch = activeMatches().find((m) => (m.competition || "league") === comp.kind && Number(m.round) === j.round
+      && sameJornadaDate(m.date, j.exact?.date || j.date));
     const rivalName = ownSide === "home" ? j.away : j.home;
     return {
       ...j, compName: comp.name, kind: comp.kind, ownSide,
@@ -4162,7 +4180,7 @@ function parseScoreToGoals(score) {
 
 function prepareFixtureMatch(key) {
   const [kind, round] = key.split("|");
-  const f = teamFixtures().find((item) => item.kind === kind && item.round === Number(round));
+  const f = findFixture(kind, round);
   if (!f) return;
   if (f.appMatch) {
     state.selectedMatchId = f.appMatch.id;
