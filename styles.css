@@ -4856,9 +4856,10 @@ button:focus-visible {
 }
 
 .team-card-position {
+  /* Abajo a la derecha: en las fotos de plantilla ahí solo hay piernas y banco, no caras */
   position: absolute;
-  top: 12px;
-  right: 12px;
+  bottom: 10px;
+  right: 10px;
   display: grid;
   justify-items: center;
   min-width: 56px;
