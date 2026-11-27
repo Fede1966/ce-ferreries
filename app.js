@@ -2996,6 +2996,7 @@ function renderSquad() {
       <div class="team-switcher-summary">
         <strong>${escapeHtml(currentTeam().name)}</strong>
         <span class="meta">${players.length} jugadores · ${activeMatches().length} partidos</span>
+        ${calendarSubscribeHtml()}
       </div>
       <div class="team-switcher-actions">
         <button class="secondary-button" id="edit-team-button" type="button">Editar equipo</button>
@@ -3800,6 +3801,31 @@ function nextMatchCardHtml() {
     </section>`;
 }
 
+// Botón para que las familias añadan los partidos del equipo al calendario del móvil
+// (suscripción: se actualiza sola con el día, la hora y el campo; ver api/calendario.js)
+function calendarSubscribeHtml(teamId = state.activeTeamId) {
+  if (!state.fixtures?.[teamId]) return "";
+  const feed = `www.ceferreries.app/api/calendario?equipo=${encodeURIComponent(teamId)}`;
+  return `
+    <details class="calendar-subscribe">
+      <summary>Añadir a mi calendario</summary>
+      <div class="calendar-subscribe-menu">
+        <p class="meta">Los partidos del equipo aparecen en el calendario del móvil y se actualizan solos cuando se conocen o cambian el día, la hora o el campo.</p>
+        <a class="secondary-button" href="webcal://${feed}">iPhone, iPad o Mac</a>
+        <a class="secondary-button" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`webcal://${feed}`)}" target="_blank" rel="noopener">Google Calendar (Android)</a>
+        <button class="link-button" type="button" data-copy-calendar="https://${feed}">Copiar enlace (Outlook y otros)</button>
+      </div>
+    </details>`;
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("[data-copy-calendar]");
+  if (!button) return;
+  navigator.clipboard?.writeText(button.dataset.copyCalendar)
+    .then(() => { button.textContent = "Enlace copiado"; })
+    .catch(() => { button.textContent = button.dataset.copyCalendar; });
+});
+
 function calendarHtml() {
   const data = state.fixtures?.[state.activeTeamId];
   if (!data) {
@@ -3810,6 +3836,7 @@ function calendarHtml() {
   const updated = new Date(data.updatedAt).toLocaleString("es-ES", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   const byComp = data.competitions.filter((c) => c.jornadas.length);
   return `
+    ${calendarSubscribeHtml()}
     ${byComp.map((comp) => {
       const rows = teamFixtures().filter((f) => f.compName === comp.name && f.kind === comp.kind);
       return `

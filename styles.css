@@ -5663,3 +5663,36 @@ html {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* «Añadir a mi calendario» (suscripción del calendario del equipo) */
+.calendar-subscribe {
+  margin: 8px 0 14px;
+}
+.calendar-subscribe summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #12213f;
+  color: #fff;
+  font-weight: 700;
+  font-size: .9rem;
+  cursor: pointer;
+  list-style: none;
+}
+.calendar-subscribe summary::-webkit-details-marker { display: none; }
+.calendar-subscribe summary::before { content: "📅"; }
+.calendar-subscribe[open] summary { border-radius: 8px 8px 0 0; }
+.calendar-subscribe-menu {
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+  padding: 12px;
+  border: 1px solid var(--line, #e2e6ee);
+  border-radius: 0 8px 8px 8px;
+  background: var(--surface, #fff);
+}
+.calendar-subscribe-menu .meta { margin: 0; }
+.calendar-subscribe-menu a { text-align: center; text-decoration: none; }
+.calendar-subscribe-menu .link-button { margin: 0; justify-self: start; }
