@@ -1,0 +1,16 @@
+{
+  "name": "CE Ferreries",
+  "short_name": "CE Ferreries",
+  "description": "Resultados, calendario, clasificaciones y plantillas de todos los equipos del CE Ferreries.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#12213f",
+  "theme_color": "#12213f",
+  "icons": [
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
