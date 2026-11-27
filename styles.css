@@ -5694,5 +5694,5 @@ html {
   background: var(--surface, #fff);
 }
 .calendar-subscribe-menu .meta { margin: 0; }
-.calendar-subscribe-menu a { text-align: center; text-decoration: none; }
+.calendar-subscribe-menu a { display: flex; align-items: center; justify-content: center; min-height: 40px; padding-top: 0; padding-bottom: 0; text-align: center; text-decoration: none; }
 .calendar-subscribe-menu .link-button { margin: 0; justify-self: start; }
