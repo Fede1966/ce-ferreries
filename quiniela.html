@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>La Quiniela del Ferre · CE Ferreries</title>
+    <meta name="description" content="La Quiniela del Ferre: pronostica cada semana los partidos de los equipos del CE Ferreries. Gratis, con premio del patrocinador para quien acierte todos." />
+    <meta name="theme-color" content="#12213f" />
+    <link rel="icon" href="assets/ce-ferreries-crest.gif" />
+    <link rel="apple-touch-icon" href="assets/ce-ferreries-crest.gif" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CE Ferreries" />
+    <meta property="og:title" content="La Quiniela del Ferre" />
+    <meta property="og:description" content="Pronostica los partidos del CE Ferreries. Gratis, con premio para quien acierte todos." />
+    <meta property="og:image" content="https://www.ceferreries.app/assets/ce-ferreries-presentacion-2026.jpg" />
+    <meta property="og:url" content="https://www.ceferreries.app/quiniela.html" />
+    <link rel="stylesheet" href="quiniela.css?v=20261127-1" />
+  </head>
+  <body>
+    <header class="q-top">
+      <a class="q-brand" href="./">
+        <img src="assets/ce-ferreries-crest.gif" alt="" width="34" height="34" />
+        <span><strong>CE Ferreries</strong><small>Ferreries · Menorca</small></span>
+      </a>
+      <nav class="q-nav" aria-label="Navegación principal">
+        <a href="./">Inicio</a>
+        <a href="./?temporada=2026-2027&vista=squad">Equipos</a>
+        <a href="./?temporada=2026-2027&vista=matches">Partidos</a>
+        <a href="quiniela.html" aria-current="page">Quiniela</a>
+      </nav>
+    </header>
+
+    <section class="q-hero">
+      <div class="q-wrap">
+        <h1>La Quiniela del Ferre</h1>
+        <p class="q-sub" id="q-jornada-info">Cargando la jornada…</p>
+        <div class="q-sponsor" id="q-sponsor" hidden>
+          <div class="q-sponsor-logo" id="q-sponsor-logo">🏆</div>
+          <div>
+            <small id="q-sponsor-label">Patrocinada por</small>
+            <strong id="q-sponsor-name"></strong>
+            <span class="q-sponsor-prize" id="q-sponsor-prize"></span>
+            <span id="q-sponsor-link"></span>
+          </div>
+        </div>
+        <nav class="q-tabs" aria-label="Secciones de la quiniela">
+          <a href="#jugar" data-tab="jugar">Jugar</a>
+          <a href="#clasificacion" data-tab="clasificacion">Clasificación</a>
+          <a href="#club" data-tab="club" hidden id="q-tab-club">Club</a>
+        </nav>
+      </div>
+    </section>
+
+    <main class="q-wrap q-main">
+      <div id="q-error" class="q-msg bad" hidden></div>
+
+      <!-- JUGAR -->
+      <section id="v-jugar" class="q-view">
+        <div class="q-card" id="q-empty" hidden>
+          <h2>Todavía no hay ninguna jornada</h2>
+          <p class="q-note">Cuando el club abra la próxima, podrás rellenar tu quiniela aquí.</p>
+        </div>
+
+        <div class="q-card">
+          <label for="q-loc">¿Ya tienes quiniela? Escribe tu localizador para verla o cambiarla</label>
+          <div class="q-row-inline">
+            <input type="text" id="q-loc" placeholder="FER-7K3QX" autocomplete="off" autocapitalize="characters" />
+            <button class="q-btn ghost" id="q-loc-go" type="button">Abrir</button>
+          </div>
+          <div id="q-loc-msg"></div>
+        </div>
+
+        <div class="q-card q-done" id="q-done" hidden></div>
+
+        <form id="q-form" hidden novalidate>
+          <div class="q-slip">
+            <h2 id="q-slip-title">Marca 1, X o 2 en cada partido</h2>
+            <div id="q-rows"></div>
+            <div class="q-exact">
+              <label for="q-ex1">Resultado exacto de <span id="q-first"></span> <small>(sirve para desempatar)</small></label>
+              <div class="q-exact-in">
+                <input type="number" id="q-ex1" min="0" max="30" inputmode="numeric" aria-label="Goles del equipo local" />
+                <span>–</span>
+                <input type="number" id="q-ex2" min="0" max="30" inputmode="numeric" aria-label="Goles del equipo visitante" />
+              </div>
+            </div>
+          </div>
+          <div class="q-card">
+            <div class="q-grid2">
+              <div class="q-field"><label for="q-alias">Alias <small>(lo único que se ve en público)</small></label><input type="text" id="q-alias" maxlength="20" autocomplete="nickname" /></div>
+              <div class="q-field"><label for="q-email">Email <small>(solo para avisarte si ganas)</small></label><input type="email" id="q-email" maxlength="120" autocomplete="email" /></div>
+            </div>
+            <label class="q-check"><input type="checkbox" id="q-ok" />
+              <span>Acepto las bases de la quiniela. Mi email no se publica: el CE Ferreries solo lo usará para avisarme si gano.</span></label>
+            <p class="q-count" id="q-count"></p>
+            <div id="q-form-msg"></div>
+            <div class="q-btns">
+              <button class="q-btn red" id="q-send" type="submit">Enviar quiniela</button>
+              <button class="q-btn ghost" id="q-cancel-edit" type="button" hidden>Hacer una nueva</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="q-card" id="q-closed" hidden>
+          <h2>La jornada está cerrada</h2>
+          <p class="q-note">Ya no se pueden enviar ni cambiar quinielas. Mira cómo va en <a href="#clasificacion">Clasificación</a>.</p>
+        </div>
+
+        <details class="q-card q-rules">
+          <summary>Bases de la quiniela</summary>
+          <ul>
+            <li>Participar es gratis. Una quiniela por persona (email) y jornada.</li>
+            <li>Se puede cambiar con el localizador hasta la hora de cierre, que es la del primer partido de la jornada.</li>
+            <li>Solo gana quien acierte todos los partidos. Si un partido se suspende, no cuenta.</li>
+            <li class="q-solo-premio">Si nadie acierta todos, la jornada queda desierta y el premio no se acumula.</li>
+            <li>Si hay varios plenos, gana quien haya acertado también el resultado exacto del primer partido. Si sigue el empate, el club hace un sorteo entre ellos y lo publica aquí.</li>
+            <li class="q-solo-premio">El premio lo pone el patrocinador de la jornada. Se recoge en su establecimiento enseñando el localizador.</li>
+            <li>En la clasificación solo aparece el alias. Los pronósticos de los demás se ven cuando la jornada ya está cerrada.</li>
+          </ul>
+        </details>
+      </section>
+
+      <!-- CLASIFICACIÓN -->
+      <section id="v-clasificacion" class="q-view" hidden>
+        <div class="q-card q-row-inline">
+          <label for="q-jsel" class="q-grow">Jornada</label>
+          <select id="q-jsel"></select>
+        </div>
+        <div class="q-card" id="q-verdict"></div>
+        <div class="q-card">
+          <h2>Clasificación de la jornada</h2>
+          <div id="q-table"></div>
+        </div>
+        <div class="q-card">
+          <h2>Clasificación de la temporada</h2>
+          <p class="q-note">Aciertos sumados de todas las jornadas cerradas.</p>
+          <div id="q-acc"></div>
+        </div>
+      </section>
+
+      <!-- CLUB -->
+      <section id="v-club" class="q-view" hidden>
+        <div class="q-card" id="q-club-login" hidden>
+          <h2>Gestión de la quiniela</h2>
+          <p class="q-note">Para gestionarla, entra en la app con la cuenta del administrador o del coordinador y vuelve a esta página.</p>
+          <a class="q-btn" href="./?temporada=2026-2027&vista=squad">Ir a la app para entrar</a>
+        </div>
+        <div id="q-club" hidden>
+          <div class="q-card q-row-inline">
+            <label for="q-admin-jsel" class="q-grow">Jornada que gestionas</label>
+            <select id="q-admin-jsel"></select>
+            <button class="q-btn" type="button" id="q-new">Nueva jornada</button>
+          </div>
+
+          <div class="q-card" id="q-edit">
+            <h2 id="q-edit-title">Jornada</h2>
+            <div class="q-grid2">
+              <div class="q-field"><label for="a-nombre">Nombre</label><input type="text" id="a-nombre" maxlength="60" /></div>
+              <div class="q-field"><label for="a-cierre">Cierre (hora del primer partido)</label><input type="datetime-local" id="a-cierre" /></div>
+            </div>
+            <h3>Partidos</h3>
+            <p class="q-note" id="a-partidos-note">El primero de la lista es el del desempate por resultado exacto.</p>
+            <div id="a-partidos"></div>
+            <details class="q-sub-card">
+              <summary>Añadir un partido a mano</summary>
+              <div class="q-grid3">
+                <div class="q-field"><label for="a-m-eq">Equipo</label><input type="text" id="a-m-eq" maxlength="40" placeholder="Cadete" /></div>
+                <div class="q-field"><label for="a-m-l">Local</label><input type="text" id="a-m-l" maxlength="60" /></div>
+                <div class="q-field"><label for="a-m-v">Visitante</label><input type="text" id="a-m-v" maxlength="60" /></div>
+              </div>
+              <button class="q-btn ghost" type="button" id="a-m-add">Añadir</button>
+            </details>
+            <h3>Patrocinador</h3>
+            <div class="q-grid2">
+              <div class="q-field"><label for="a-sp-n">Nombre</label><input type="text" id="a-sp-n" maxlength="60" placeholder="Restaurante Es Pla" /></div>
+              <div class="q-field"><label for="a-sp-p">Premio</label><input type="text" id="a-sp-p" maxlength="80" placeholder="2 menús para el ganador" /></div>
+              <div class="q-field"><label for="a-sp-l">Web o Instagram (opcional)</label><input type="url" id="a-sp-l" maxlength="200" placeholder="https://instagram.com/…" /></div>
+              <div class="q-field"><label for="a-sp-f">Logo (opcional)</label>
+                <div class="q-row-inline"><div class="q-logo-prev" id="a-sp-prev">Sin logo</div><input type="file" id="a-sp-f" accept="image/*" /></div>
+                <button class="q-link" type="button" id="a-sp-del">Quitar logo</button>
+              </div>
+            </div>
+            <div id="a-edit-msg"></div>
+            <div class="q-btns"><button class="q-btn red" type="button" id="a-save">Guardar jornada</button></div>
+          </div>
+
+          <div class="q-slip" id="q-results">
+            <h2>Resultados</h2>
+            <div id="a-res"></div>
+            <div class="q-exact">
+              <label for="a-rx1">Resultado de <span id="a-first"></span></label>
+              <div class="q-exact-in">
+                <input type="number" id="a-rx1" min="0" max="30" inputmode="numeric" aria-label="Goles del equipo local" />
+                <span>–</span>
+                <input type="number" id="a-rx2" min="0" max="30" inputmode="numeric" aria-label="Goles del equipo visitante" />
+              </div>
+            </div>
+            <div class="q-pad">
+              <div id="a-res-msg"></div>
+              <div class="q-btns">
+                <button class="q-btn ghost" type="button" id="a-fill">Rellenar con los resultados de la app</button>
+                <button class="q-btn red" type="button" id="a-res-save">Guardar resultados</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="q-card" id="q-admin-people">
+            <h2>Participantes y ganador</h2>
+            <div id="a-verdict"></div>
+            <div id="a-people"></div>
+          </div>
+
+          <div class="q-card">
+            <h2>Borrar la jornada</h2>
+            <p class="q-note">Borra la jornada y todas sus quinielas. Úsalo solo para jornadas de prueba.</p>
+            <button class="q-btn ghost" type="button" id="a-del">Borrar esta jornada</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="q-foot q-wrap">
+      <a href="./">← Volver a la web del CE Ferreries</a>
+    </footer>
+
+    <script src="quiniela.js?v=20261127-1"></script>
+  </body>
+</html>
