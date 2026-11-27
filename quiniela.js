@@ -237,11 +237,12 @@
         p_exacto: { local: Number(x1), visitante: Number(x2) }, p_localizador: editingLoc
       });
       saveLoc(j.id, res.localizador);
+      const waHref = whatsappHref(j, res.localizador, alias, { ...picks }, { local: Number(x1), visitante: Number(x2) });
       $("q-done").hidden = false;
       $("q-done").innerHTML = `<p style="margin:0">${res.nueva ? "¡Quiniela enviada!" : "Cambios guardados."} Tu localizador es</p>
         <div class="q-loc">${esc(res.localizador)}</div>
         <p class="q-note" style="margin:6px 0 10px">Guárdalo (una captura de pantalla vale). Con él puedes cambiar tu quiniela hasta el cierre${J()?.patrocinador?.premio ? " y, si ganas, recoger el premio" : ""}.</p>
-        <button class="q-btn ghost" type="button" id="q-copy">Copiar localizador</button>`;
+        <div class="q-done-actions">${whatsappButton(waHref)}<button class="q-btn ghost" type="button" id="q-copy">Copiar localizador</button></div>`;
       $("q-copy").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText(res.localizador); $("q-copy").textContent = "Copiado"; } catch { $("q-copy").textContent = "No se ha podido copiar"; }
       });
@@ -255,6 +256,34 @@
       $("q-send").disabled = false;
     }
   });
+
+  // ---------- «Enviármelo por WhatsApp» ----------
+  // Abre WhatsApp con un mensaje ya escrito (localizador, enlace y pronósticos) para que el usuario
+  // se lo guarde mandándoselo a sí mismo. No hace falta ningún servicio de correo.
+  function quinielaLink(loc) {
+    return `${location.origin}${location.pathname}?loc=${encodeURIComponent(loc)}`;
+  }
+
+  function whatsappHref(j, loc, alias, picksOf, exacto) {
+    const signo = { "1": "1", X: "X", "2": "2" };
+    const lineas = (j?.partidos || []).map((p, i) => `${i + 1}. ${p.local} - ${p.visitante}: ${signo[picksOf?.[p.id]] || "—"}`);
+    const primero = j?.partidos?.[0];
+    const texto = [
+      `⚽ La Quiniela del Ferre · ${j?.nombre || ""}`,
+      alias ? `Alias: ${alias}` : "",
+      `Localizador: ${loc}`,
+      "",
+      ...lineas,
+      primero && exacto ? `Resultado exacto (${primero.local} - ${primero.visitante}): ${exacto.local}-${exacto.visitante}` : "",
+      "",
+      `Consultarla${j?.cerrada ? "" : " o cambiarla"}: ${quinielaLink(loc)}`
+    ].filter((l, i, arr) => l !== "" || (arr[i - 1] !== "" && i > 0)).join("\n");
+    return `https://wa.me/?text=${encodeURIComponent(texto)}`;
+  }
+
+  function whatsappButton(href) {
+    return `<a class="q-btn q-wa" href="${esc(href)}" target="_blank" rel="noopener">Enviármelo por WhatsApp</a>`;
+  }
 
   async function openLocator() {
     const loc = $("q-loc").value.trim().toUpperCase();
@@ -273,7 +302,8 @@
       $("q-ex2").value = b.exacto?.visitante ?? "";
       $("q-ok").checked = true;
       const hits = b.validos ? ` Lleva <b>${b.aciertos} aciertos de ${b.validos}</b> partidos con resultado.` : "";
-      msg("q-loc-msg", `Quiniela de <b>${esc(b.alias)}</b> (${esc(j.nombre)}).${j.cerrada ? " La jornada está cerrada, así que solo se puede consultar." : " Puedes cambiarla y guardar."}${hits}`, true);
+      msg("q-loc-msg", `Quiniela de <b>${esc(b.alias)}</b> (${esc(j.nombre)}).${j.cerrada ? " La jornada está cerrada, así que solo se puede consultar." : " Puedes cambiarla y guardar."}${hits}
+        <div class="q-done-actions" style="margin-top:8px">${whatsappButton(whatsappHref(j, b.localizador, b.alias, b.picks, b.exacto))}</div>`, true);
       $("q-done").hidden = true;
       renderPlay();
     } catch (error) {
@@ -635,5 +665,12 @@
 
   addEventListener("hashchange", route);
   route();
-  loadPublic();
+  // Enlace del mensaje de WhatsApp: quiniela.html?loc=FER-XXXX abre directamente esa quiniela
+  const locFromLink = new URLSearchParams(location.search).get("loc");
+  loadPublic().then(() => {
+    if (locFromLink && /^FER-[A-Z0-9]{4,6}$/i.test(locFromLink)) {
+      $("q-loc").value = locFromLink.toUpperCase();
+      openLocator();
+    }
+  });
 })();

@@ -137,3 +137,7 @@ tr.win td { background: var(--ok-bg); font-weight: 600; }
 }
 .q-exact-in input[type="number"] { width: 76px; flex: none; }
 .q-row-inline > label.q-grow { flex: 1 1 100%; }
+
+/* Localizador: botones «Enviármelo por WhatsApp» y «Copiar» */
+.q-done-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.q-btn.q-wa { background: #1fa855; color: #fff; }
