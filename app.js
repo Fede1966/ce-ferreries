@@ -4038,10 +4038,12 @@ function renderClubSections(teams, fixtures, results, publicData) {
       <a class="team-card" href="?temporada=${NEW_SEASON}&vista=squad&equipo=${encodeURIComponent(team.id)}">
         <div class="team-card-photo ${photo ? "" : "no-photo"}" ${photo}>
           ${photo ? "" : `<img src="assets/ce-ferreries-crest.gif" alt="" />`}
-          ${position ? `<span class="team-card-position" title="Posición en la clasificación"><b>${position}º</b>${ownRow ? `<small>${ownRow.points} ${ownRow.points === 1 ? "pt" : "pts"}</small>` : ""}</span>` : ""}
         </div>
         <div class="team-card-body">
-          <h3>${escapeHtml(name)}</h3>
+          <div class="team-card-head">
+            <h3>${escapeHtml(name)}</h3>
+            ${position ? `<span class="team-card-position" title="Posición en la clasificación"><b>${position}º</b>${ownRow ? `<small>${ownRow.points} ${ownRow.points === 1 ? "pt" : "pts"}</small>` : ""}</span>` : ""}
+          </div>
           <p class="team-card-league">${escapeHtml(team.standingsLabel || (position ? "Liga" : "Temporada 2026-2027"))}${table.length ? ` · ${table.length} equipos` : ""}</p>
           <dl class="team-card-facts">
             <div>

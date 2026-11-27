@@ -4856,23 +4856,32 @@ button:focus-visible {
 }
 
 .team-card-position {
-  /* Abajo a la derecha: en las fotos de plantilla ahí solo hay piernas y banco, no caras */
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+  /* Junto al nombre del equipo, fuera de la foto: así no tapa a nadie */
+  flex: none;
   display: grid;
   justify-items: center;
-  min-width: 56px;
-  padding: 6px 10px;
+  min-width: 52px;
+  padding: 4px 8px;
   color: #12213f;
   line-height: 1.05;
-  background: #fff;
+  background: #eef2f8;
+  border: 1px solid #d9e0ec;
   border-radius: 10px;
-  box-shadow: 0 6px 16px rgb(0 0 0 / 25%);
+}
+
+.team-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-card-head h3 {
+  min-width: 0;
 }
 
 .team-card-position b {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 900;
 }
 
