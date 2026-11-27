@@ -70,7 +70,12 @@ language sql stable set search_path = public as $$
     'matchVideos', coalesce((
       select jsonb_agg(v order by o)
       from jsonb_array_elements(coalesce(s -> 'matchVideos', '[]'::jsonb)) with ordinality as t(v, o)
-      where v ->> 'teamId' = p_equipo), '[]'::jsonb)
+      where v ->> 'teamId' = p_equipo), '[]'::jsonb),
+    -- Asistencia a entrenamientos: solo la del propio equipo (visitantes, ninguna)
+    'trainings', coalesce((
+      select jsonb_agg(x order by o)
+      from jsonb_array_elements(coalesce(s -> 'trainings', '[]'::jsonb)) with ordinality as t(x, o)
+      where x ->> 'teamId' = p_equipo), '[]'::jsonb)
   )
 $$;
 
@@ -153,6 +158,9 @@ begin
       'staff',
         coalesce((select jsonb_agg(x) from jsonb_array_elements(coalesce(s -> 'staff', '[]'::jsonb)) x where coalesce(x ->> 'teamId', '') <> eq), '[]'::jsonb)
         || coalesce((select jsonb_agg(x) from jsonb_array_elements(coalesce(n -> 'staff', '[]'::jsonb)) x where x ->> 'teamId' = eq), '[]'::jsonb),
+      'trainings',
+        coalesce((select jsonb_agg(x) from jsonb_array_elements(coalesce(s -> 'trainings', '[]'::jsonb)) x where coalesce(x ->> 'teamId', '') <> eq), '[]'::jsonb)
+        || coalesce((select jsonb_agg(x) from jsonb_array_elements(coalesce(n -> 'trainings', '[]'::jsonb)) x where x ->> 'teamId' = eq), '[]'::jsonb),
       'teams', coalesce((
         select jsonb_agg(case when t ->> 'id' = eq
                               then coalesce((select t2 from jsonb_array_elements(n -> 'teams') t2 where t2 ->> 'id' = eq limit 1), t)

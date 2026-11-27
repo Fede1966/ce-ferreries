@@ -2934,11 +2934,12 @@ function applyAccessMode() {
   });
   document.querySelectorAll(".main-content button").forEach((button) => {
     const navigationOnly = button.matches(
-      "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], [data-statistics-tab], [data-matches-tab], #back-to-matches"
+      "[data-open-player], [data-open-match], [data-player-tab], [data-detail-tab], [data-statistics-tab], [data-matches-tab], [data-copy-calendar], #back-to-matches"
     );
     if (!navigationOnly) button.disabled = !editable;
   });
   toolbarTeamSelector.disabled = false;
+  document.querySelectorAll(".staff-only").forEach((item) => { item.hidden = !authSession?.access_token; });
   contextActionButton.hidden = !editable;
   addMatchVideoButton.hidden = !editable;
 }
@@ -2963,7 +2964,7 @@ function normalizedMainView() {
 
 function pageTitleForView(view) {
   if (view === "statistics") {
-    const statisticsTitles = { summary: "Resumen", players: "Estadísticas", compare: "Comparar jugadores", participation: "Participación" };
+    const statisticsTitles = { summary: "Resumen", players: "Estadísticas", compare: "Comparar jugadores", participation: "Participación", trainings: "Entrenamientos" };
     return statisticsTitles[statisticsTab] || "Estadísticas";
   }
   const titles = {
@@ -5071,15 +5072,149 @@ function renderParticipationTab() {
     </div>`;
 }
 
+// ---------- Asistencia a entrenamientos (interno: solo cuerpo técnico) ----------
+// state.trainings = [{ id, teamId, date: "aaaa-mm-dd", absent: { [playerId]: "falta" | "justificada" } }]
+// Solo se guardan las ausencias: quien no aparece en «absent» asistió. La base de datos no entrega
+// estos datos a visitantes ni a entrenadores de otros equipos (ver supabase-permisos.sql).
+let trainingDraft = null; // { date, absent } mientras se pasa lista, hasta pulsar «Guardar»
+
+function teamTrainings() {
+  return (Array.isArray(state.trainings) ? state.trainings : [])
+    .filter((item) => item.teamId === state.activeTeamId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function trainingFor(date) {
+  return teamTrainings().find((item) => item.date === date) || null;
+}
+
+function openTrainingDraft(date) {
+  const saved = trainingFor(date);
+  trainingDraft = { teamId: state.activeTeamId, date, absent: { ...(saved?.absent || {}) }, saved: Boolean(saved) };
+}
+
+function renderTrainingsTab() {
+  if (!authSession?.access_token) {
+    return `<div class="club-statistics-page analysis-page"><div class="empty-state">La asistencia a entrenamientos solo la ve el cuerpo técnico. Inicia sesión para verla.</div></div>`;
+  }
+  const editable = canEdit();
+  const trainings = teamTrainings();
+  if (!editable && !trainings.length) {
+    return `<div class="club-statistics-page analysis-page"><div class="empty-state">La asistencia de este equipo solo la ven su entrenador y los coordinadores.</div></div>`;
+  }
+  if (!trainingDraft || trainingDraft.teamId !== state.activeTeamId) openTrainingDraft(todayIso());
+  const players = activePlayers().slice().sort((a, b) => (a.number || 999) - (b.number || 999) || a.name.localeCompare(b.name, "es"));
+  const label = { falta: "Falta", justificada: "Justificada" };
+  const draftAbsent = Object.values(trainingDraft.absent).length;
+  const stats = players.map((p) => {
+    const faltas = trainings.filter((t) => t.absent?.[p.id] === "falta").length;
+    const justificadas = trainings.filter((t) => t.absent?.[p.id] === "justificada").length;
+    const asistencias = trainings.length - faltas - justificadas;
+    return { p, asistencias, faltas, justificadas, pct: trainings.length ? Math.round((asistencias / trainings.length) * 100) : null };
+  });
+  return `
+    <div class="club-statistics-page analysis-page trainings-page">
+      <p class="meta">Solo lo ven el entrenador del equipo y los coordinadores. Por defecto todos asisten: toca a quien falte (un toque = falta, otro = justificada, otro = asiste).</p>
+      ${editable ? `
+      <section class="panel training-roll">
+        <div class="training-roll-head">
+          <label>Día del entrenamiento <input type="date" id="training-date" value="${escapeAttr(trainingDraft.date)}" max="${escapeAttr(todayIso())}" /></label>
+          <span class="meta">${trainingDraft.saved ? "Ya guardado: puedes corregirlo" : "Nuevo"} · ${players.length - draftAbsent} de ${players.length} asisten</span>
+        </div>
+        <div class="training-players">
+          ${players.map((p) => {
+            const st = trainingDraft.absent[p.id] || "";
+            return `<button type="button" class="training-player ${st ? `is-${st}` : "is-present"}" data-training-player="${escapeAttr(p.id)}">
+              ${p.number ? `<span class="mstat-dorsal">${escapeHtml(String(p.number))}</span>` : ""}<span class="training-name">${escapeHtml(p.name)}</span>
+              <span class="training-state">${st ? label[st] : "Asiste"}</span>
+            </button>`;
+          }).join("")}
+        </div>
+        <div class="training-actions">
+          <button class="primary-button" type="button" id="training-save">Guardar asistencia</button>
+          ${trainingDraft.saved ? `<button class="secondary-button" type="button" id="training-delete">Eliminar este entrenamiento</button>` : ""}
+        </div>
+      </section>` : ""}
+      ${trainings.length ? `
+      <section class="panel">
+        <h3>Entrenamientos registrados (${trainings.length})</h3>
+        <div class="training-history">${trainings.map((t) => {
+          const n = Object.keys(t.absent || {}).length;
+          return `<button type="button" class="secondary-button training-day ${t.date === trainingDraft.date ? "active" : ""}" data-training-open="${escapeAttr(t.date)}">${escapeHtml(formatDate(t.date))}${n ? ` · ${n} ${n === 1 ? "falta" : "faltas"}` : " · todos"}</button>`;
+        }).join("")}</div>
+      </section>
+      <div class="table-panel"><div class="data-table-scroll"><table class="data-table training-summary">
+        <thead><tr><th>Jugador</th><th>Asiste</th><th>Faltas</th><th>Justif.</th><th>%</th></tr></thead>
+        <tbody>${stats.sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || (a.p.number || 999) - (b.p.number || 999)).map((r) => `<tr>
+          <th class="part-name">${r.p.number ? `<span class="mstat-dorsal">${escapeHtml(String(r.p.number))}</span>` : ""}<button class="player-link" type="button" data-open-player="${escapeAttr(r.p.id)}">${escapeHtml(r.p.name)}</button></th>
+          <td>${r.asistencias}</td><td>${r.faltas}</td><td>${r.justificadas}</td>
+          <td><strong class="${r.pct !== null && r.pct < 70 ? "training-low" : ""}">${r.pct === null ? "—" : `${r.pct}%`}</strong></td>
+        </tr>`).join("")}</tbody>
+      </table></div></div>` : `<div class="empty-state">Aún no hay entrenamientos registrados en este equipo.</div>`}
+    </div>`;
+}
+
+function bindTrainingsTab() {
+  const root = views.statistics;
+  root.querySelector("#training-date")?.addEventListener("change", (event) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(event.target.value)) return;
+    openTrainingDraft(event.target.value);
+    renderStatistics();
+    applyAccessMode();
+  });
+  root.querySelectorAll("[data-training-player]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.trainingPlayer;
+      const next = { "": "falta", falta: "justificada", justificada: "" }[trainingDraft.absent[id] || ""];
+      if (next) trainingDraft.absent[id] = next;
+      else delete trainingDraft.absent[id];
+      renderStatistics();
+      applyAccessMode();
+    });
+  });
+  root.querySelectorAll("[data-training-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openTrainingDraft(button.dataset.trainingOpen);
+      renderStatistics();
+      applyAccessMode();
+    });
+  });
+  root.querySelector("#training-save")?.addEventListener("click", () => {
+    if (!canEdit() || !trainingDraft) return;
+    const list = Array.isArray(state.trainings) ? state.trainings : [];
+    const existing = list.find((t) => t.teamId === trainingDraft.teamId && t.date === trainingDraft.date);
+    if (existing) existing.absent = { ...trainingDraft.absent };
+    else list.push({ id: crypto.randomUUID(), teamId: trainingDraft.teamId, date: trainingDraft.date, absent: { ...trainingDraft.absent } });
+    state.trainings = list;
+    trainingDraft.saved = true;
+    saveState();
+    renderStatistics();
+    applyAccessMode();
+  });
+  root.querySelector("#training-delete")?.addEventListener("click", () => {
+    if (!canEdit() || !trainingDraft) return;
+    if (!confirm(`¿Eliminar el entrenamiento del ${formatDate(trainingDraft.date)}?`)) return;
+    state.trainings = (state.trainings || []).filter((t) => !(t.teamId === trainingDraft.teamId && t.date === trainingDraft.date));
+    openTrainingDraft(trainingDraft.date);
+    saveState();
+    renderStatistics();
+    applyAccessMode();
+  });
+}
+
 function renderStandings() {
   views.standings.innerHTML = standingsHtml();
 }
 
 function renderStatistics() {
   if (statisticsTab !== "players") {
-    const body = statisticsTab === "compare" ? renderCompareTab() : statisticsTab === "participation" ? renderParticipationTab() : renderSummaryTab();
+    const body = statisticsTab === "compare" ? renderCompareTab()
+      : statisticsTab === "participation" ? renderParticipationTab()
+      : statisticsTab === "trainings" ? renderTrainingsTab()
+      : renderSummaryTab();
     views.statistics.innerHTML = statisticsTabsHtml() + body;
     bindStatisticsTabs();
+    if (statisticsTab === "trainings") bindTrainingsTab();
     views.statistics.querySelectorAll("[data-open-match]").forEach((button) => {
       button.addEventListener("click", () => {
         state.selectedMatchId = button.dataset.openMatch;

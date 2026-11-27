@@ -5696,3 +5696,22 @@ html {
 .calendar-subscribe-menu .meta { margin: 0; }
 .calendar-subscribe-menu a { display: flex; align-items: center; justify-content: center; min-height: 40px; padding-top: 0; padding-bottom: 0; text-align: center; text-decoration: none; }
 .calendar-subscribe-menu .link-button { margin: 0; justify-self: start; }
+
+/* Asistencia a entrenamientos (solo cuerpo técnico) */
+.training-roll { display: grid; gap: 12px; }
+.training-roll-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.training-roll-head label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.training-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.training-player {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px;
+  border: 1px solid var(--line, #e2e6ee); border-radius: 10px; background: #eaf6ee; color: #14532d;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.training-player .training-name { flex: 1; font-weight: 600; }
+.training-player .training-state { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+.training-player.is-falta { background: #fde8e8; color: #8a1c1c; border-color: #f3b9b9; }
+.training-player.is-justificada { background: #fbf0cf; color: #7a5b00; border-color: #efd98f; }
+.training-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.training-history { display: flex; flex-wrap: wrap; gap: 6px; }
+.training-day.active { outline: 2px solid #12213f; }
+.training-low { color: #a3162b; }
